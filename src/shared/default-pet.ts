@@ -1,0 +1,43 @@
+import type {PetManifest} from './contracts';
+
+const repeated = (count: number, duration: number) => Array.from({length: count}, () => duration);
+const doubled = (durations: number[]) => durations.flatMap((duration) => [duration / 2, duration / 2]);
+
+export const defaultPetManifest: PetManifest = {
+  schemaVersion: 1,
+  id: 'penguin-suit-administrator-b',
+  displayName: 'Penguin Suit Administrator (B.)',
+  atlasPath: 'pets/default/atlas.webp',
+  cell: {
+    width: 256,
+    height: 256,
+    columns: 16,
+  },
+  animations: {
+    idle: {row: 0, frames: 12, durationsMs: doubled([280, 110, 110, 140, 140, 320]), loop: true, reducedMotionFrame: 0},
+    'look-left': {row: 1, frames: 8, durationsMs: repeated(8, 75), loop: true, reducedMotionFrame: 4},
+    'look-right': {row: 2, frames: 8, durationsMs: repeated(8, 75), loop: true, reducedMotionFrame: 4},
+    'click-reaction': {row: 3, frames: 12, durationsMs: doubled([100, 100, 120, 140, 120, 180]), loop: false, reducedMotionFrame: 6},
+    'drag-left': {row: 4, frames: 16, durationsMs: repeated(16, 55), loop: true, reducedMotionFrame: 0},
+    'drag-right': {row: 5, frames: 16, durationsMs: repeated(16, 55), loop: true, reducedMotionFrame: 0},
+    'dock-left-enter': {row: 6, frames: 12, durationsMs: doubled([100, 110, 120, 130, 150, 220]), loop: false, reducedMotionFrame: 10},
+    'dock-left-idle': {row: 7, frames: 12, durationsMs: repeated(12, 90), loop: true, reducedMotionFrame: 0},
+    'dock-right-enter': {row: 8, frames: 12, durationsMs: doubled([100, 110, 120, 130, 150, 220]), loop: false, reducedMotionFrame: 10},
+    'dock-right-idle': {row: 9, frames: 12, durationsMs: repeated(12, 90), loop: true, reducedMotionFrame: 0},
+  },
+  bindings: {
+    idle: 'idle',
+    pointerLeft: 'look-left',
+    pointerRight: 'look-right',
+    click: 'click-reaction',
+    dragLeft: 'drag-left',
+    dragRight: 'drag-right',
+    dockLeftEnter: 'dock-left-enter',
+    dockLeftIdle: 'dock-left-idle',
+    dockRightEnter: 'dock-right-enter',
+    dockRightIdle: 'dock-right-idle',
+  },
+  hitTest: {
+    alphaThreshold: 16,
+  },
+};

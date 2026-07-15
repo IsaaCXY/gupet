@@ -1,0 +1,42 @@
+{
+  "name": "desktop-pet",
+  "productName": "Desktop Pet",
+  "version": "0.1.0",
+  "description": "A cross-platform interactive desktop pet for macOS and Windows.",
+  "main": ".vite/build/main.js",
+  "private": true,
+  "scripts": {
+    "assets:build": "node scripts/build-formal-pet-atlas.mjs",
+    "assets:placeholder": "node scripts/generate-placeholder-atlas.mjs",
+    "assets:validate": "node scripts/validate-pet-assets.mjs",
+    "start": "pnpm assets:validate && electron-forge start",
+    "package": "pnpm assets:validate && electron-forge package",
+    "make": "pnpm assets:validate && electron-forge make",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-dmg": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "@electron-forge/plugin-vite": "7.11.2",
+    "@electron-forge/shared-types": "7.11.2",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.0",
+    "electron": "43.1.1",
+    "sharp": "^0.34.5",
+    "typescript": "^5.9.3",
+    "vite": "8.1.4",
+    "vitest": "^4.1.0"
+  }
+}

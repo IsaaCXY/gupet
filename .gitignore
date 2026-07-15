@@ -1,0 +1,11 @@
+node_modules/
+.vite/
+out/
+coverage/
+playwright-report/
+test-results/
+outputs/
+work/
+.worktree/
+*.log
+.DS_Store
