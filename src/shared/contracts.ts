@@ -143,12 +143,14 @@ export const petManifestSchema: z.ZodType<PetManifest> = z
     }
   });
 
-export interface DragPoint {
-  screenX: number;
-  screenY: number;
-  grabX: number;
-  grabY: number;
-}
+export const dragPointSchema = z.object({
+  screenX: z.number().finite(),
+  screenY: z.number().finite(),
+  grabX: z.number().finite(),
+  grabY: z.number().finite(),
+});
+
+export type DragPoint = z.infer<typeof dragPointSchema>;
 
 export interface DesktopPetApi {
   getSettings(): Promise<PetSettings>;

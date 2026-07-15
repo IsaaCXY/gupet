@@ -253,6 +253,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
   };
 
   const queueMove = (point: DragPoint) => {
+    if (![point.screenX, point.screenY, point.grabX, point.grabY].every(Number.isFinite)) return;
     pendingMoveRef.current = point;
     if (moveFrameRef.current !== null) return;
     moveFrameRef.current = requestAnimationFrame(() => {

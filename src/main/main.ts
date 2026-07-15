@@ -9,7 +9,7 @@ import {
   Tray,
   type Display,
 } from 'electron';
-import {WINDOW_SIZE, type DockSide, type DragPoint, type PetPlacement, type PetSettings} from '../shared/contracts';
+import {WINDOW_SIZE, dragPointSchema, type DockSide, type PetPlacement, type PetSettings} from '../shared/contracts';
 import {positionForPlacement, snapOrClamp, yRatioFor} from './geometry';
 import {StateStore} from './state-store';
 
@@ -105,10 +105,14 @@ const resetPosition = (): PetPlacement => {
   return persistCurrentPlacement(null);
 };
 
-const movePet = (point: DragPoint) => {
+const movePet = (input: unknown) => {
   if (!petWindow) return;
+  const parsed = dragPointSchema.safeParse(input);
+  if (!parsed.success) return;
+  const point = parsed.data;
   const x = Math.round(point.screenX - point.grabX);
   const y = Math.round(point.screenY - point.grabY);
+  if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y)) return;
   petWindow.setPosition(x, y, false);
 };
 
@@ -254,7 +258,7 @@ const registerIpc = () => {
   ipcMain.on('pet:set-ignore-mouse-events', (_event, ignore: boolean) => {
     petWindow?.setIgnoreMouseEvents(Boolean(ignore), ignore ? {forward: true} : undefined);
   });
-  ipcMain.on('pet:move', (_event, point: DragPoint) => movePet(point));
+  ipcMain.on('pet:move', (_event, point: unknown) => movePet(point));
   ipcMain.on('pet:context-menu', () => tray?.popUpContextMenu(trayMenu()));
 };
 

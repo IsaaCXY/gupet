@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {defaultPetManifest} from '../../src/shared/default-pet';
-import {petManifestSchema, persistedStateSchema} from '../../src/shared/contracts';
+import {dragPointSchema, petManifestSchema, persistedStateSchema} from '../../src/shared/contracts';
 
 describe('runtime contracts', () => {
   it('fills persisted state defaults', () => {
@@ -18,5 +18,11 @@ describe('runtime contracts', () => {
     const invalid = structuredClone(defaultPetManifest);
     invalid.animations.idle.frames = 17;
     expect(() => petManifestSchema.parse(invalid)).toThrow();
+  });
+
+  it('rejects incomplete or non-finite drag coordinates before they reach Electron', () => {
+    expect(dragPointSchema.safeParse({screenX: 100, screenY: 200, grabX: 80, grabY: 90}).success).toBe(true);
+    expect(dragPointSchema.safeParse({screenX: undefined, screenY: 200, grabX: 80, grabY: 90}).success).toBe(false);
+    expect(dragPointSchema.safeParse({screenX: Number.NaN, screenY: 200, grabX: 80, grabY: 90}).success).toBe(false);
   });
 });

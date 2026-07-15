@@ -48,6 +48,17 @@ test('packaged app opens the pet and receives settings updates', async () => {
     return {x, y};
   });
   expect(positionAfterAnimations).toEqual(positionBeforeAnimations);
+  await canvas.hover({position: {x: 160, y: 160}});
+  await pet.mouse.down();
+  await pet.mouse.move(190, 190, {steps: 3});
+  await pet.mouse.up();
+  await expect(canvas).toBeVisible();
+  const positionAfterDrag = await app.evaluate(({BrowserWindow}) => {
+    const {x, y} = BrowserWindow.getAllWindows()[0].getBounds();
+    return {x, y};
+  });
+  expect(Number.isSafeInteger(positionAfterDrag.x)).toBe(true);
+  expect(Number.isSafeInteger(positionAfterDrag.y)).toBe(true);
   await app.evaluate(({BrowserWindow}) => {
     BrowserWindow.getAllWindows()[0].webContents.send('settings:changed', {
       petSize: 192,
