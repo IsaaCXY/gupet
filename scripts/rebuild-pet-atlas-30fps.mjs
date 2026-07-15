@@ -7,7 +7,7 @@ const root = process.cwd();
 const petRoot = path.join(root, 'public', 'pets', 'default');
 const sourceAtlasPath = path.join(petRoot, 'atlas.webp');
 const manifestPath = path.join(petRoot, 'pet.json');
-const idleStripPath = path.join(root, 'work', 'pet-v2', 'source', 'idle-strip-alpha.png');
+const idleStripPath = path.join(root, 'assets', 'pets', 'default', 'idle-strip-alpha.png');
 const normalizedRoot = path.join(root, 'work', 'pet-v2', 'normalized');
 const qaRoot = path.join(root, 'work', 'pet-v2', 'qa');
 
