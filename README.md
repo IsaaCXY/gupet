@@ -1,51 +1,64 @@
-# Desktop Pet
+# Gupet
 
-Interactive Electron desktop pet for macOS and Windows. The app uses a transparent always-on-top window, alpha-aware mouse passthrough, Canvas sprite animation, pointer reactions, dragging, and left/right edge docking.
+Gupet 是面向 macOS 与 Windows 的桌面 Pet。它使用透明置顶窗口和 Canvas 精灵动画，支持可见像素命中、点击反馈、头眼追随、拖动、左右吸边、托盘管理及减少动态效果。
 
-## Develop
+## 快速开始
 
-Requires Node.js 24 and pnpm 11.
+环境要求：Node.js 24、pnpm 11。
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm start
 ```
 
-Quality checks:
+常用命令：
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm package
-pnpm test:e2e
+pnpm typecheck       # TypeScript 检查
+pnpm test            # Vitest 单元测试
+pnpm package         # 打包未安装的应用目录
+pnpm make            # 生成当前平台安装包
+pnpm test:e2e        # Playwright Electron 测试
 ```
 
-Build the current platform's installer:
+## 文档
+
+- [架构设计](docs/architecture.md)：进程边界、状态机、输入、动画、窗口与数据流。
+- [技术选型](docs/technical-decisions.md)：为什么选择 Electron、React、Canvas 2D、Zod、Forge 等方案。
+- [使用说明](docs/user-guide.md)：安装、交互、设置、构建、素材替换和故障处理。
+
+## 核心交互
+
+- 鼠标进入 Pet 的可见像素后，根据左右位置触发头眼追随。
+- 单击可见区域播放一次反馈动画。
+- 移动超过 6 个逻辑像素进入拖动；靠近或越过工作区左右边缘时吸附。
+- 右键 Pet 打开托盘菜单；单击托盘图标显示或隐藏 Pet。
+- 动画只改变窗口内的画面，不主动改变 Pet 的桌面坐标。
+
+## Pet 素材
+
+默认资源位于 `public/pets/default/`：
+
+- `atlas.webp`：透明无损 WebP，16 列，每格 256×256 像素。
+- `pet.json`：动作行、帧时长、循环方式、静态帧和交互绑定。
+
+替换素材后运行：
 
 ```bash
-pnpm make
+pnpm assets:validate
 ```
 
-## Pet assets
+详细规范见[使用说明中的素材替换](docs/user-guide.md#替换-pet-素材)。`pnpm assets:placeholder` 会覆盖正式图集，仅用于主动恢复开发占位素材。
 
-The default Pet is `Penguin Suit Administrator (B.)`. Its release atlas and manifest live under `public/pets/default/`. Local generation rows, extracted frames, QA media, and installers are kept in the ignored `work/` and `outputs/` directories.
+## 当前范围
 
-When local decoded source rows are available, rebuild the atlas with `pnpm assets:build`, then copy `work/pet-v1/final/atlas.webp` to `public/pets/default/atlas.webp`.
+首版不包含自主行走、全局输入监听、上下吸边、在线皮肤、官网、自动更新和业务任务状态。
 
-To replace the Pet, update both files under `public/pets/default/`:
+## 构建与签名
 
-- `atlas.webp`: lossless transparent WebP, 16 columns, 256x256 pixels per cell.
-- `pet.json`: animation rows, frame durations, reduced-motion frames, and interaction bindings.
+GitHub Actions 在 macOS 和 Windows runner 上分别构建安装包。签名构建所需 Secrets：
 
-Run `pnpm assets:validate` after replacement. It verifies dimensions, bindings, frame counts, non-empty used cells, and transparent unused cells.
+- macOS：`MACOS_CERTIFICATE_P12`、`MACOS_CERTIFICATE_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`
+- Windows：`WINDOWS_CERTIFICATE_P12`、`WINDOWS_CERTIFICATE_PASSWORD`
 
-The required v1 animations are `idle`, `look-left`, `look-right`, `click-reaction`, `drag-left`, `drag-right`, `dock-left-enter`, `dock-left-idle`, `dock-right-enter`, and `dock-right-idle`. Keep identity, scale, baseline, palette, props, and facing direction consistent across every row. Validate the final contact sheet and per-row GIFs visually before release.
-
-The checked-in `pnpm assets:placeholder` generator overwrites `atlas.webp` with a development placeholder. Run it only when intentionally restoring the placeholder; normal start and packaging commands never overwrite Pet artwork.
-
-## Signing
-
-The GitHub Actions workflow builds on macOS and Windows. Configure these repository secrets when signed artifacts are required:
-
-- macOS: `MACOS_CERTIFICATE_P12`, `MACOS_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
-- Windows: `WINDOWS_CERTIFICATE_P12`, `WINDOWS_CERTIFICATE_PASSWORD`
+未配置签名凭据时仍可构建，但安装时可能出现系统安全提示。
