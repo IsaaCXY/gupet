@@ -1,7 +1,7 @@
 import type {PetManifest} from './contracts';
 
 const repeated = (count: number, duration: number) => Array.from({length: count}, () => duration);
-const doubled = (durations: number[]) => durations.flatMap((duration) => [duration / 2, duration / 2]);
+const FRAME_DURATION_30FPS = 1000 / 30;
 
 export const defaultPetManifest: PetManifest = {
   schemaVersion: 1,
@@ -14,14 +14,14 @@ export const defaultPetManifest: PetManifest = {
     columns: 16,
   },
   animations: {
-    idle: {row: 0, frames: 12, durationsMs: doubled([280, 110, 110, 140, 140, 320]), loop: true, reducedMotionFrame: 0},
-    'click-reaction': {row: 3, frames: 12, durationsMs: doubled([100, 100, 120, 140, 120, 180]), loop: false, reducedMotionFrame: 6},
-    'drag-left': {row: 4, frames: 16, durationsMs: repeated(16, 55), loop: true, reducedMotionFrame: 0},
-    'drag-right': {row: 5, frames: 16, durationsMs: repeated(16, 55), loop: true, reducedMotionFrame: 0},
-    'dock-left-enter': {row: 6, frames: 12, durationsMs: doubled([100, 110, 120, 130, 150, 220]), loop: false, reducedMotionFrame: 10},
-    'dock-left-idle': {row: 7, frames: 12, durationsMs: repeated(12, 90), loop: true, reducedMotionFrame: 0},
-    'dock-right-enter': {row: 8, frames: 12, durationsMs: doubled([100, 110, 120, 130, 150, 220]), loop: false, reducedMotionFrame: 10},
-    'dock-right-idle': {row: 9, frames: 12, durationsMs: repeated(12, 90), loop: true, reducedMotionFrame: 0},
+    idle: {row: 0, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
+    'click-reaction': {row: 3, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: false, reducedMotionFrame: 6},
+    'drag-left': {row: 4, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
+    'drag-right': {row: 5, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
+    'dock-left-enter': {row: 6, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: false, reducedMotionFrame: 10},
+    'dock-left-idle': {row: 7, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
+    'dock-right-enter': {row: 8, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: false, reducedMotionFrame: 10},
+    'dock-right-idle': {row: 9, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
   },
   bindings: {
     idle: 'idle',

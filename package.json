@@ -8,6 +8,9 @@
   "scripts": {
     "assets:build": "node scripts/build-formal-pet-atlas.mjs",
     "assets:align-docks": "node scripts/normalize-dock-alignment.mjs",
+    "assets:rebuild-30fps": "node scripts/rebuild-pet-atlas-30fps.mjs",
+    "assets:validate-motion": "node scripts/validate-pet-motion.mjs",
+    "assets:render-qa": "python3 scripts/render-pet-qa.py",
     "assets:placeholder": "node scripts/generate-placeholder-atlas.mjs",
     "assets:validate": "node scripts/validate-pet-assets.mjs",
     "start": "pnpm assets:validate && electron-forge start",
