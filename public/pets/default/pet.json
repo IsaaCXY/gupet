@@ -6,8 +6,6 @@
   "cell": {"width": 256, "height": 256, "columns": 16},
   "animations": {
     "idle": {"row": 0, "frames": 12, "durationsMs": [140, 140, 55, 55, 55, 55, 70, 70, 70, 70, 160, 160], "loop": true, "reducedMotionFrame": 0},
-    "look-left": {"row": 1, "frames": 8, "durationsMs": [75, 75, 75, 75, 75, 75, 75, 75], "loop": true, "reducedMotionFrame": 4},
-    "look-right": {"row": 2, "frames": 8, "durationsMs": [75, 75, 75, 75, 75, 75, 75, 75], "loop": true, "reducedMotionFrame": 4},
     "click-reaction": {"row": 3, "frames": 12, "durationsMs": [50, 50, 50, 50, 60, 60, 70, 70, 60, 60, 90, 90], "loop": false, "reducedMotionFrame": 6},
     "drag-left": {"row": 4, "frames": 16, "durationsMs": [55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55], "loop": true, "reducedMotionFrame": 0},
     "drag-right": {"row": 5, "frames": 16, "durationsMs": [55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55], "loop": true, "reducedMotionFrame": 0},
@@ -18,8 +16,6 @@
   },
   "bindings": {
     "idle": "idle",
-    "pointerLeft": "look-left",
-    "pointerRight": "look-right",
     "click": "click-reaction",
     "dragLeft": "drag-left",
     "dragRight": "drag-right",
@@ -28,5 +24,6 @@
     "dockRightEnter": "dock-right-enter",
     "dockRightIdle": "dock-right-idle"
   },
-  "hitTest": {"alphaThreshold": 16}
+  "hitTest": {"alphaThreshold": 16},
+  "sounds": {"click": "pets/default/click.wav"}
 }

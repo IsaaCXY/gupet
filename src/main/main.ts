@@ -9,8 +9,8 @@ import {
   Tray,
   type Display,
 } from 'electron';
-import {WINDOW_SIZE, dragPointSchema, type DockSide, type PetPlacement, type PetSettings} from '../shared/contracts';
-import {positionForPlacement, snapOrClamp, yRatioFor} from './geometry';
+import {WINDOW_SIZE, dockFrameBoundsSchema, dragPointSchema, type DockFrameBounds, type DockSide, type PetPlacement, type PetSettings} from '../shared/contracts';
+import {positionForPlacement, snapOrClamp, xForDockedFrame, yRatioFor} from './geometry';
 import {StateStore} from './state-store';
 
 let petWindow: BrowserWindow | null = null;
@@ -18,6 +18,8 @@ let settingsWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let store: StateStore;
 let quitting = false;
+let dockAnchorBounds: DockFrameBounds | null = null;
+let petHidden = false;
 
 const loadRenderer = async (window: BrowserWindow, view: 'pet' | 'settings') => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -43,6 +45,16 @@ const applySavedPlacement = () => {
   const display = displayForPlacement(placement);
   const settings = store.getSettings();
   const position = positionForPlacement(placement, display.workArea, WINDOW_SIZE, settings.petSize);
+  if (placement.dockSide && dockAnchorBounds) {
+    position.x = xForDockedFrame(
+      placement.dockSide,
+      display.workArea,
+      WINDOW_SIZE,
+      settings.petSize,
+      dockAnchorBounds.visibleLeft,
+      dockAnchorBounds.visibleRight,
+    );
+  }
   petWindow.setPosition(Math.round(position.x), Math.round(position.y), false);
 };
 
@@ -116,8 +128,29 @@ const movePet = (input: unknown) => {
   petWindow.setPosition(x, y, false);
 };
 
+const alignDockedFrame = (input: unknown) => {
+  if (!petWindow) return;
+  const bounds = dockFrameBoundsSchema.safeParse(input);
+  const placement = store.getPlacement();
+  if (!bounds.success || !placement.dockSide) return;
+  dockAnchorBounds = bounds.data;
+  const display = displayForPlacement(placement);
+  const settings = store.getSettings();
+  const {y} = petWindow.getBounds();
+  const x = xForDockedFrame(
+    placement.dockSide,
+    display.workArea,
+    WINDOW_SIZE,
+    settings.petSize,
+    bounds.data.visibleLeft,
+    bounds.data.visibleRight,
+  );
+  petWindow.setPosition(x, y, false);
+};
+
 const createPetWindow = async () => {
   const settings = store.getSettings();
+  petHidden = false;
   petWindow = new BrowserWindow({
     width: WINDOW_SIZE,
     height: WINDOW_SIZE,
@@ -148,12 +181,14 @@ const createPetWindow = async () => {
   petWindow.on('close', (event) => {
     if (!quitting) {
       event.preventDefault();
-      petWindow?.hide();
+      setPetVisible(false);
     }
   });
   petWindow.on('closed', () => {
     petWindow = null;
   });
+  petWindow.on('show', refreshTrayMenu);
+  petWindow.on('hide', refreshTrayMenu);
 
   await loadRenderer(petWindow, 'pet');
   applySavedPlacement();
@@ -216,11 +251,8 @@ const createTrayImage = () => {
 const trayMenu = () =>
   Menu.buildFromTemplate([
     {
-      label: petWindow?.isVisible() ? 'Hide Pet' : 'Show Pet',
-      click: () => {
-        if (petWindow?.isVisible()) petWindow.hide();
-        else petWindow?.showInactive();
-      },
+      label: !petHidden && petWindow?.isVisible() ? 'Hide Pet' : 'Show Pet',
+      click: togglePetVisibility,
     },
     {label: 'Settings…', click: () => void createSettingsWindow()},
     {label: 'Reset Position', click: resetPosition},
@@ -234,15 +266,31 @@ const trayMenu = () =>
     },
   ]);
 
+const refreshTrayMenu = () => tray?.setContextMenu(trayMenu());
+
+const setPetVisible = (visible: boolean) => {
+  if (!petWindow) return;
+  petHidden = !visible;
+  petWindow.setIgnoreMouseEvents(!visible, !visible ? {forward: true} : undefined);
+  if (visible && !petWindow.isVisible()) petWindow.showInactive();
+  petWindow.setOpacity(visible ? 1 : 0);
+  petWindow.webContents.send('pet:visibility-changed', visible);
+  refreshTrayMenu();
+};
+
+const togglePetVisibility = () => {
+  setPetVisible(petHidden);
+};
+
 const createTray = () => {
   tray = new Tray(createTrayImage());
   tray.setToolTip('Desktop Pet');
-  tray.on('click', () => {
-    if (petWindow?.isVisible()) petWindow.hide();
-    else petWindow?.showInactive();
+  tray.on('click', togglePetVisibility);
+  tray.on('right-click', () => {
+    refreshTrayMenu();
+    tray?.popUpContextMenu(trayMenu());
   });
-  tray.on('right-click', () => tray?.popUpContextMenu(trayMenu()));
-  tray.setContextMenu(trayMenu());
+  refreshTrayMenu();
 };
 
 const registerIpc = () => {
@@ -259,6 +307,7 @@ const registerIpc = () => {
     petWindow?.setIgnoreMouseEvents(Boolean(ignore), ignore ? {forward: true} : undefined);
   });
   ipcMain.on('pet:move', (_event, point: unknown) => movePet(point));
+  ipcMain.on('pet:align-docked-frame', (_event, bounds: unknown) => alignDockedFrame(bounds));
   ipcMain.on('pet:context-menu', () => tray?.popUpContextMenu(trayMenu()));
 };
 
@@ -273,7 +322,7 @@ app.whenReady().then(async () => {
   screen.on('display-metrics-changed', applySavedPlacement);
   app.on('activate', () => {
     if (!petWindow) void createPetWindow();
-    else petWindow.showInactive();
+    else setPetVisible(true);
   });
 });
 

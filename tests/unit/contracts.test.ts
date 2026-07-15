@@ -14,6 +14,12 @@ describe('runtime contracts', () => {
     expect(petManifestSchema.parse(defaultPetManifest)).toEqual(defaultPetManifest);
   });
 
+  it('accepts manifests without an optional click sound', () => {
+    const manifest = structuredClone(defaultPetManifest);
+    delete manifest.sounds;
+    expect(petManifestSchema.parse(manifest).sounds).toBeUndefined();
+  });
+
   it('rejects atlases with more than sixteen frames in a row', () => {
     const invalid = structuredClone(defaultPetManifest);
     invalid.animations.idle.frames = 17;

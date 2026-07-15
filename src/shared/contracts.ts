@@ -75,8 +75,6 @@ export interface PetManifest {
   animations: Record<string, AnimationDefinition>;
   bindings: {
     idle: string;
-    pointerLeft: string;
-    pointerRight: string;
     click: string;
     dragLeft: string;
     dragRight: string;
@@ -87,6 +85,9 @@ export interface PetManifest {
   };
   hitTest: {
     alphaThreshold: number;
+  };
+  sounds?: {
+    click?: string;
   };
 }
 
@@ -121,8 +122,6 @@ export const petManifestSchema: z.ZodType<PetManifest> = z
     animations: z.record(z.string(), animationDefinitionSchema),
     bindings: z.object({
       idle: z.string(),
-      pointerLeft: z.string(),
-      pointerRight: z.string(),
       click: z.string(),
       dragLeft: z.string(),
       dragRight: z.string(),
@@ -134,6 +133,9 @@ export const petManifestSchema: z.ZodType<PetManifest> = z
     hitTest: z.object({
       alphaThreshold: z.number().int().min(0).max(255),
     }),
+    sounds: z.object({
+      click: z.string().min(1).optional(),
+    }).optional(),
   })
   .superRefine((manifest, context) => {
     for (const [binding, animation] of Object.entries(manifest.bindings)) {
@@ -152,14 +154,25 @@ export const dragPointSchema = z.object({
 
 export type DragPoint = z.infer<typeof dragPointSchema>;
 
+export const dockFrameBoundsSchema = z.object({
+  visibleLeft: z.number().int().min(0).max(255),
+  visibleRight: z.number().int().min(0).max(255),
+}).refine(({visibleLeft, visibleRight}) => visibleLeft <= visibleRight, {
+  message: 'visibleLeft must not exceed visibleRight',
+});
+
+export type DockFrameBounds = z.infer<typeof dockFrameBoundsSchema>;
+
 export interface DesktopPetApi {
   getSettings(): Promise<PetSettings>;
   updateSettings(patch: Partial<PetSettings>): Promise<PetSettings>;
   onSettingsChanged(listener: (settings: PetSettings) => void): () => void;
+  onPetVisibilityChanged(listener: (visible: boolean) => void): () => void;
   getPlacement(): Promise<PetPlacement>;
   setIgnoreMouseEvents(ignore: boolean): void;
   movePet(point: DragPoint): void;
   finishDrag(): Promise<DockSide>;
+  alignDockedFrame(bounds: DockFrameBounds): void;
   resetPosition(): Promise<PetPlacement>;
   openContextMenu(): void;
 }

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {positionForPlacement, snapOrClamp, yRatioFor} from '../../src/main/geometry';
+import {positionForPlacement, snapOrClamp, xForDockedFrame, yRatioFor} from '../../src/main/geometry';
 
 const workArea = {x: -1920, y: 0, width: 1920, height: 1080};
 
@@ -64,5 +64,10 @@ describe('desktop geometry', () => {
 
   it('normalizes vertical placement', () => {
     expect(yRatioFor({x: 0, y: 380, width: 320, height: 320}, {x: 0, y: 0, width: 1920, height: 1080})).toBe(0.5);
+  });
+
+  it('aligns each docked frame by its visible alpha edge', () => {
+    expect(xForDockedFrame('left', workArea, 320, 160, 41, 169)).toBe(-2026);
+    expect(xForDockedFrame('right', workArea, 320, 160, 93, 214)).toBe(-214);
   });
 });

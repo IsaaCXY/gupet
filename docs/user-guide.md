@@ -23,11 +23,7 @@ pnpm start
 
 ### 头眼追随
 
-把鼠标移动到 Pet 的非透明像素上：
-
-- 位于角色可见区域左侧时播放向左看动作。
-- 位于右侧时播放向右看动作。
-- 回到中间区域时恢复待机。
+把鼠标移动到 Pet 的非透明像素上即可交互；透明区域仍可点击下方窗口。
 
 只有实际可见像素参与交互，角色周围的透明区域会穿透到底层窗口。
 
@@ -153,6 +149,8 @@ public/pets/default/
 └── pet.json
 ```
 
+可选点击音效放在同一目录的 `click.wav`，并由 `pet.json` 的 `sounds.click` 指向；未配置音效时，点击仍会正常播放动画。
+
 图集要求：
 
 - 透明无损 WebP。
@@ -164,7 +162,6 @@ public/pets/default/
 
 ```text
 idle
-pointerLeft / pointerRight
 click
 dragLeft / dragRight
 dockLeftEnter / dockLeftIdle

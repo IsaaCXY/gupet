@@ -34,15 +34,9 @@ test('packaged app opens the pet and receives settings updates', async () => {
     return {x, y};
   });
   await expect(canvas).toHaveAttribute('data-animation', 'idle');
-  await canvas.hover({position: {x: 145, y: 160}});
-  await expect(canvas).toHaveAttribute('data-animation', 'look-left');
-  await canvas.hover({position: {x: 175, y: 160}});
-  await expect(canvas).toHaveAttribute('data-animation', 'look-right');
   await canvas.click({position: {x: 160, y: 160}});
   await expect(canvas).toHaveAttribute('data-animation', 'click-reaction');
-  await expect(canvas).toHaveAttribute('data-animation', 'look-right', {timeout: 2_000});
-  await canvas.hover({position: {x: 160, y: 160}});
-  await expect(canvas).toHaveAttribute('data-animation', 'idle');
+  await expect(canvas).toHaveAttribute('data-animation', 'idle', {timeout: 2_000});
   const positionAfterAnimations = await app.evaluate(({BrowserWindow}) => {
     const {x, y} = BrowserWindow.getAllWindows()[0].getBounds();
     return {x, y};

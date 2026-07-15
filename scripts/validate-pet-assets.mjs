@@ -41,6 +41,19 @@ if (!metadata.hasAlpha) throw new Error('Atlas must contain an alpha channel');
 
 const {data, info} = await image.ensureAlpha().raw().toBuffer({resolveWithObject: true});
 const alphaAt = (x, y) => data[(y * info.width + x) * info.channels + 3];
+const visibleBounds = (row, frame) => {
+  let left = manifest.cell.width;
+  let right = -1;
+  for (let y = 0; y < manifest.cell.height; y += 1) {
+    for (let x = 0; x < manifest.cell.width; x += 1) {
+      if (alphaAt(frame * manifest.cell.width + x, row * manifest.cell.height + y) < manifest.hitTest.alphaThreshold) continue;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+    }
+  }
+  if (right < left) throw new Error(`Empty frame at row ${row}, frame ${frame}`);
+  return {left, right};
+};
 for (const [name, animation] of Object.entries(manifest.animations)) {
   for (let frame = 0; frame < manifest.cell.columns; frame += 1) {
     let hasVisiblePixel = false;
@@ -56,6 +69,21 @@ for (const [name, animation] of Object.entries(manifest.animations)) {
     }
     if (frame < animation.frames && !hasVisiblePixel) throw new Error(`${name}: used frame ${frame} is empty`);
     if (frame >= animation.frames && hasVisiblePixel) throw new Error(`${name}: unused frame ${frame} is not transparent`);
+  }
+}
+
+for (const side of ['Left', 'Right']) {
+  const enter = manifest.animations[manifest.bindings[`dock${side}Enter`]];
+  const idle = manifest.animations[manifest.bindings[`dock${side}Idle`]];
+  const edge = side === 'Left' ? 'left' : 'right';
+  const expected = visibleBounds(idle.row, 0)[edge];
+  for (let frame = 0; frame < idle.frames; frame += 1) {
+    if (visibleBounds(idle.row, frame)[edge] !== expected) {
+      throw new Error(`dock${side}Idle frame ${frame} must keep its ${edge} edge aligned`);
+    }
+  }
+  if (visibleBounds(enter.row, enter.frames - 1)[edge] !== expected) {
+    throw new Error(`dock${side}Enter final frame must align with dock${side}Idle frame 0`);
   }
 }
 

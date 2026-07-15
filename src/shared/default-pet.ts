@@ -15,8 +15,6 @@ export const defaultPetManifest: PetManifest = {
   },
   animations: {
     idle: {row: 0, frames: 12, durationsMs: doubled([280, 110, 110, 140, 140, 320]), loop: true, reducedMotionFrame: 0},
-    'look-left': {row: 1, frames: 8, durationsMs: repeated(8, 75), loop: true, reducedMotionFrame: 4},
-    'look-right': {row: 2, frames: 8, durationsMs: repeated(8, 75), loop: true, reducedMotionFrame: 4},
     'click-reaction': {row: 3, frames: 12, durationsMs: doubled([100, 100, 120, 140, 120, 180]), loop: false, reducedMotionFrame: 6},
     'drag-left': {row: 4, frames: 16, durationsMs: repeated(16, 55), loop: true, reducedMotionFrame: 0},
     'drag-right': {row: 5, frames: 16, durationsMs: repeated(16, 55), loop: true, reducedMotionFrame: 0},
@@ -27,8 +25,6 @@ export const defaultPetManifest: PetManifest = {
   },
   bindings: {
     idle: 'idle',
-    pointerLeft: 'look-left',
-    pointerRight: 'look-right',
     click: 'click-reaction',
     dragLeft: 'drag-left',
     dragRight: 'drag-right',
@@ -39,5 +35,8 @@ export const defaultPetManifest: PetManifest = {
   },
   hitTest: {
     alphaThreshold: 16,
+  },
+  sounds: {
+    click: 'pets/default/click.wav',
   },
 };

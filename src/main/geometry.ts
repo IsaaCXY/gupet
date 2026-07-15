@@ -45,6 +45,21 @@ export const positionForPlacement = (
   };
 };
 
+export const xForDockedFrame = (
+  dockSide: Exclude<DockSide, null>,
+  workArea: Rect,
+  windowSize: number,
+  petSize: number,
+  visibleLeft: number,
+  visibleRight: number,
+): number => {
+  const inset = (windowSize - petSize) / 2;
+  const scale = petSize / 256;
+  const visibleEdge = dockSide === 'left' ? visibleLeft : visibleRight;
+  const targetEdge = dockSide === 'left' ? workArea.x : workArea.x + workArea.width;
+  return Math.round(targetEdge - inset - visibleEdge * scale);
+};
+
 export const snapOrClamp = (
   windowBounds: Rect,
   workArea: Rect,

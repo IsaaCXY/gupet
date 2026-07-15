@@ -1,16 +1,7 @@
-import {useEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent} from 'react';
+import {useEffect, useMemo, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent} from 'react';
 import {getAnimationFrame} from '../shared/animation-clock';
 import {DRAG_THRESHOLD, WINDOW_SIZE, type DragPoint, type PetManifest, type PetSettings} from '../shared/contracts';
-import {
-  classifyPointerZone,
-  initialPetState,
-  isDragDistance,
-  normalizePointerX,
-  petMachineReducer,
-  resolveAnimationKey,
-  type Direction,
-  type PointerZone,
-} from '../shared/pet-machine';
+import {initialPetState, isDragDistance, petMachineReducer, resolveAnimationKey, type Direction} from '../shared/pet-machine';
 
 interface Props {
   settings: PetSettings;
@@ -18,7 +9,6 @@ interface Props {
 }
 
 interface ActivePointer {
-  pointerId: number;
   startScreenX: number;
   startScreenY: number;
   grabX: number;
@@ -32,8 +22,6 @@ interface AlphaMask {
   visibleLeft: number;
   visibleRight: number;
 }
-
-const POINTER_ZONE_DEBOUNCE_MS = 40;
 
 const useReducedMotion = (mode: PetSettings['motionMode']) => {
   const media = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)'), []);
@@ -55,6 +43,8 @@ export const PetCanvas = ({settings, manifest}: Props) => {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const alphaCacheRef = useRef(new Map<string, AlphaMask>());
   const frameRef = useRef(0);
+  const clickAudioRef = useRef<HTMLAudioElement | null>(null);
+  const dockAlignmentKeyRef = useRef<string | null>(null);
   const [imageReady, setImageReady] = useState(false);
   const [state, dispatch] = useReducer(petMachineReducer, initialPetState);
   const stateRef = useRef(state);
@@ -62,16 +52,20 @@ export const PetCanvas = ({settings, manifest}: Props) => {
   const pendingMoveRef = useRef<DragPoint | null>(null);
   const moveFrameRef = useRef<number | null>(null);
   const ignoreMouseRef = useRef(true);
-  const zoneRef = useRef<PointerZone>('center');
-  const zoneCandidateRef = useRef<PointerZone>('center');
-  const zoneTimerRef = useRef<number | null>(null);
   const reducedMotion = useReducedMotion(settings.motionMode);
   const animationKey = resolveAnimationKey(state, manifest);
 
   useEffect(() => {
     stateRef.current = state;
-    zoneRef.current = state.pointerZone;
   }, [state]);
+
+  useEffect(
+    () => window.desktopPet.onPetVisibilityChanged(() => {
+      activePointerRef.current = null;
+      ignoreMouseRef.current = true;
+    }),
+    [],
+  );
 
   useEffect(() => {
     void window.desktopPet.getPlacement().then((placement) => {
@@ -94,6 +88,22 @@ export const PetCanvas = ({settings, manifest}: Props) => {
       setImageReady(false);
     };
   }, [manifest.atlasPath]);
+
+  useEffect(() => {
+    const soundPath = manifest.sounds?.click;
+    if (!soundPath) {
+      clickAudioRef.current = null;
+      return;
+    }
+    const audio = new Audio(new URL(soundPath, document.baseURI).toString());
+    audio.preload = 'auto';
+    clickAudioRef.current = audio;
+    return () => {
+      if (clickAudioRef.current === audio) clickAudioRef.current = null;
+      audio.pause();
+      audio.src = '';
+    };
+  }, [manifest.sounds?.click]);
 
   useEffect(() => {
     if (!imageReady) return;
@@ -136,6 +146,23 @@ export const PetCanvas = ({settings, manifest}: Props) => {
         settings.petSize,
       );
 
+      if ((state.mode === 'docking' || state.mode === 'docked') && state.dockSide) {
+        const idleKey = state.dockSide === 'left' ? manifest.bindings.dockLeftIdle : manifest.bindings.dockRightIdle;
+        const dockAlignmentKey = `${state.dockSide}:${idleKey}:${settings.petSize}`;
+        if (dockAlignmentKeyRef.current !== dockAlignmentKey) {
+          dockAlignmentKeyRef.current = dockAlignmentKey;
+          const mask = getAlphaMask(idleKey, 0);
+          if (mask) {
+            window.desktopPet.alignDockedFrame({
+              visibleLeft: mask.visibleLeft,
+              visibleRight: mask.visibleRight,
+            });
+          }
+        }
+      } else {
+        dockAlignmentKeyRef.current = null;
+      }
+
       if (result.completed && !completionSent) {
         completionSent = true;
         dispatch({type: 'ANIMATION_DONE'});
@@ -145,11 +172,10 @@ export const PetCanvas = ({settings, manifest}: Props) => {
 
     animationFrame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animationFrame);
-  }, [animationKey, imageReady, manifest, reducedMotion, settings.petSize]);
+  }, [animationKey, imageReady, manifest, reducedMotion, settings.petSize, state.dockSide, state.mode]);
 
   useEffect(
     () => () => {
-      if (zoneTimerRef.current !== null) window.clearTimeout(zoneTimerRef.current);
       if (moveFrameRef.current !== null) cancelAnimationFrame(moveFrameRef.current);
       window.desktopPet.setIgnoreMouseEvents(true);
     },
@@ -229,28 +255,10 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     if (!mask || mask.pixels[(sourceY * manifest.cell.width + sourceX) * 4 + 3] < manifest.hitTest.alphaThreshold) {
       return null;
     }
-    return {normalizedX: normalizePointerX(sourceX, mask.visibleLeft, mask.visibleRight)};
+    return true;
   };
 
   const hitTest = (clientX: number, clientY: number) => getHit(clientX, clientY) !== null;
-
-  const schedulePointerZone = (normalizedX: number) => {
-    const next = classifyPointerZone(normalizedX, zoneRef.current);
-    if (next === zoneRef.current) {
-      if (zoneTimerRef.current !== null) window.clearTimeout(zoneTimerRef.current);
-      zoneTimerRef.current = null;
-      zoneCandidateRef.current = next;
-      return;
-    }
-    if (next === zoneCandidateRef.current && zoneTimerRef.current !== null) return;
-    if (zoneTimerRef.current !== null) window.clearTimeout(zoneTimerRef.current);
-    zoneCandidateRef.current = next;
-    zoneTimerRef.current = window.setTimeout(() => {
-      zoneTimerRef.current = null;
-      zoneRef.current = next;
-      dispatch({type: 'POINTER_ZONE', zone: next});
-    }, POINTER_ZONE_DEBOUNCE_MS);
-  };
 
   const queueMove = (point: DragPoint) => {
     if (![point.screenX, point.screenY, point.grabX, point.grabY].every(Number.isFinite)) return;
@@ -263,12 +271,14 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     });
   };
 
-  const onPointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+  // Electron only forwards native mouse-move messages while a click-through
+  // window ignores input.  On Windows those messages are not consistently
+  // promoted to Pointer Events, so use Mouse Events for the whole interaction
+  // path instead of mixing the two event models.
+  const onMouseDown = (event: ReactMouseEvent<HTMLCanvasElement>) => {
     if (event.button !== 0 || !hitTest(event.clientX, event.clientY)) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
     setWindowInteractive(true);
     activePointerRef.current = {
-      pointerId: event.pointerId,
       startScreenX: event.screenX,
       startScreenY: event.screenY,
       grabX: event.clientX,
@@ -278,16 +288,11 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     };
   };
 
-  const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+  const onMouseMove = (event: ReactMouseEvent<HTMLCanvasElement>) => {
     const active = activePointerRef.current;
     if (!active) {
       const hit = getHit(event.clientX, event.clientY);
       setWindowInteractive(Boolean(hit));
-      if (!hit) {
-        dispatch({type: 'POINTER_LEAVE'});
-        return;
-      }
-      schedulePointerZone(hit.normalizedX);
       return;
     }
 
@@ -311,10 +316,9 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     }
   };
 
-  const finishPointer = async (event: ReactPointerEvent<HTMLCanvasElement>) => {
+  const finishMouse = async (event: ReactMouseEvent<HTMLCanvasElement>) => {
     const active = activePointerRef.current;
-    if (!active || active.pointerId !== event.pointerId) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!active) return;
     activePointerRef.current = null;
 
     if (active.dragging) {
@@ -327,14 +331,18 @@ export const PetCanvas = ({settings, manifest}: Props) => {
       const dockSide = await window.desktopPet.finishDrag();
       dispatch({type: 'DRAG_END', dockSide});
     } else {
+      const audio = clickAudioRef.current;
+      if (audio) {
+        audio.currentTime = 0;
+        void audio.play().catch((error: unknown) => console.warn('Unable to play click sound', error));
+      }
       dispatch({type: 'CLICK'});
     }
     setWindowInteractive(hitTest(event.clientX, event.clientY));
   };
 
-  const onPointerLeave = () => {
+  const onMouseLeave = () => {
     if (activePointerRef.current) return;
-    dispatch({type: 'POINTER_LEAVE'});
     setWindowInteractive(false);
   };
 
@@ -345,11 +353,10 @@ export const PetCanvas = ({settings, manifest}: Props) => {
       aria-label={manifest.displayName}
       data-animation={animationKey}
       data-mode={state.mode}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={(event) => void finishPointer(event)}
-      onPointerCancel={(event) => void finishPointer(event)}
-      onPointerLeave={onPointerLeave}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={(event) => void finishMouse(event)}
+      onMouseLeave={onMouseLeave}
       onContextMenu={(event) => {
         event.preventDefault();
         window.desktopPet.openContextMenu();

@@ -35,9 +35,9 @@ body {
 }
 
 .settings-shell {
-  min-height: 100%;
+  height: 100%;
   padding: 32px;
-  overflow: auto;
+  overflow-y: auto;
   background:
     radial-gradient(circle at 90% 0%, rgba(108, 124, 255, 0.14), transparent 36%),
     #f4f6fb;

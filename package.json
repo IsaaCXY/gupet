@@ -7,6 +7,7 @@
   "private": true,
   "scripts": {
     "assets:build": "node scripts/build-formal-pet-atlas.mjs",
+    "assets:align-docks": "node scripts/normalize-dock-alignment.mjs",
     "assets:placeholder": "node scripts/generate-placeholder-atlas.mjs",
     "assets:validate": "node scripts/validate-pet-assets.mjs",
     "start": "pnpm assets:validate && electron-forge start",
