@@ -39,7 +39,7 @@ pnpm test:e2e        # Playwright Electron 测试
 
 默认资源位于 `public/pets/default/`：
 
-- `atlas.webp`：透明无损 WebP，16 列，每格 256×256 像素。
+- `atlas.webp`：透明无损 WebP，32 列，每格 256×256 像素。
 - `pet.json`：动作行、帧时长、循环方式、静态帧和交互绑定。
 
 替换素材后运行：

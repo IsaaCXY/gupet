@@ -15,9 +15,10 @@ describe('runtime contracts', () => {
     expect(petManifestSchema.parse(defaultPetManifest)).toEqual(defaultPetManifest);
   });
 
-  it('uses a 30fps timeline and sixteen-frame idle loop', () => {
+  it('uses a 30fps timeline and thirty-frame idle loop', () => {
     const frameDuration = 1000 / 30;
-    expect(defaultPetManifest.animations.idle.frames).toBe(16);
+    expect(defaultPetManifest.cell.columns).toBe(32);
+    expect(defaultPetManifest.animations.idle.frames).toBe(30);
     for (const animation of Object.values(defaultPetManifest.animations)) {
       expect(animation.durationsMs).toHaveLength(animation.frames);
       expect(animation.durationsMs.every((duration) => Math.abs(duration - frameDuration) < 0.001)).toBe(true);
@@ -30,9 +31,9 @@ describe('runtime contracts', () => {
     expect(petManifestSchema.parse(manifest).sounds).toBeUndefined();
   });
 
-  it('rejects atlases with more than sixteen frames in a row', () => {
+  it('rejects atlases with more than thirty-two frames in a row', () => {
     const invalid = structuredClone(defaultPetManifest);
-    invalid.animations.idle.frames = 17;
+    invalid.animations.idle.frames = 33;
     expect(() => petManifestSchema.parse(invalid)).toThrow();
   });
 

@@ -12,8 +12,8 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const atlasPath = path.join(process.cwd(), 'public', 'pets', 'default', path.basename(manifest.atlasPath));
 
 if (manifest.schemaVersion !== 1) throw new Error('Unsupported pet schemaVersion');
-if (manifest.cell?.width !== 256 || manifest.cell?.height !== 256 || manifest.cell?.columns !== 16) {
-  throw new Error('Pet atlas must use 16 columns of 256x256 cells');
+if (manifest.cell?.width !== 256 || manifest.cell?.height !== 256 || manifest.cell?.columns !== 32) {
+  throw new Error('Pet atlas must use 32 columns of 256x256 cells');
 }
 
 const bindings = Object.entries(manifest.bindings ?? {});

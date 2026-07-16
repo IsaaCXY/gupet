@@ -13,10 +13,10 @@ export const defaultPetManifest: PetManifest = {
   cell: {
     width: 256,
     height: 256,
-    columns: 16,
+    columns: 32,
   },
   animations: {
-    idle: {row: 0, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
+    idle: {row: 0, frames: 30, durationsMs: repeated(30, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
     'click-reaction': {row: 3, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: false, reducedMotionFrame: 6},
     'drag-left': {row: 4, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
     'drag-right': {row: 5, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},

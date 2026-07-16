@@ -11,13 +11,13 @@ const root = process.cwd();
 const petRoot = path.join(root, 'public', 'pets', 'default');
 const sourceAtlasPath = path.join(petRoot, 'atlas.webp');
 const manifestPath = path.join(petRoot, 'pet.json');
-const idleStripPath = path.join(root, 'assets', 'pets', 'default', 'idle-strip-alpha.png');
+const idleStripPath = path.join(root, 'assets', 'pets', 'default', 'idle-30fps-sheet-alpha.png');
 const normalizedRoot = path.join(root, 'work', 'pet-v2', 'normalized');
 const qaRoot = path.join(root, 'work', 'pet-v2', 'qa');
 
 const CELL = 256;
-const COLUMNS = 16;
-const IDLE_FRAMES = 16;
+const COLUMNS = 32;
+const IDLE_FRAMES = 30;
 // 运行时使用浮点毫秒值精确表达 30fps，而不是近似的 33ms。
 const FRAME_DURATION_MS = 1000 / 30;
 const ALPHA_THRESHOLD = 16;
@@ -25,6 +25,8 @@ const TARGET_VISIBLE_HEIGHT = 224;
 const BASELINE_Y = 239;
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+// 图集宽度与 manifest 必须同步升级，否则 Renderer 会按旧列数解释资源。
+manifest.cell.columns = COLUMNS;
 const {data: atlasData, info: atlasInfo} = await sharp(sourceAtlasPath).ensureAlpha().raw().toBuffer({resolveWithObject: true});
 const {data: idleData, info: idleInfo} = await sharp(idleStripPath).ensureAlpha().raw().toBuffer({resolveWithObject: true});
 
@@ -35,23 +37,54 @@ if (idleInfo.width < IDLE_FRAMES || idleInfo.height < 1) {
 const pixelOffset = (info, x, y) => (y * info.width + x) * info.channels;
 
 const connectedIdleSlots = () => {
-  // 生成条带的实际槽宽可能不完全相等，按 alpha 连通列切分而非按平均宽度硬切。
-  const occupied = Array.from({length: idleInfo.width}, (_, x) => {
-    for (let y = 0; y < idleInfo.height; y += 1) {
-      if (idleData[pixelOffset(idleInfo, x, y) + 3] >= ALPHA_THRESHOLD) return true;
+  // 新 idle 源图是 2×15 排列。按 4 邻域找完整角色组件，避免假设每个槽等宽。
+  const pixels = idleInfo.width * idleInfo.height;
+  const visited = new Uint8Array(pixels);
+  const components = [];
+  const stack = [];
+
+  for (let start = 0; start < pixels; start += 1) {
+    if (visited[start] || idleData[start * idleInfo.channels + 3] < ALPHA_THRESHOLD) continue;
+    visited[start] = 1;
+    stack.push(start);
+    let left = idleInfo.width;
+    let top = idleInfo.height;
+    let right = -1;
+    let bottom = -1;
+    let area = 0;
+
+    while (stack.length > 0) {
+      const index = stack.pop();
+      const x = index % idleInfo.width;
+      const y = Math.floor(index / idleInfo.width);
+      area += 1;
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+      for (const neighbor of [index - 1, index + 1, index - idleInfo.width, index + idleInfo.width]) {
+        if (neighbor < 0 || neighbor >= pixels || visited[neighbor]) continue;
+        const neighborX = neighbor % idleInfo.width;
+        if (Math.abs(neighborX - x) > 1 || idleData[neighbor * idleInfo.channels + 3] < ALPHA_THRESHOLD) continue;
+        visited[neighbor] = 1;
+        stack.push(neighbor);
+      }
     }
-    return false;
-  });
-  const slots = [];
-  let start = null;
-  for (let x = 0; x <= occupied.length; x += 1) {
-    if (occupied[x] && start === null) start = x;
-    if ((!occupied[x] || x === occupied.length) && start !== null) {
-      slots.push({left: start, width: x - start});
-      start = null;
-    }
+    if (area >= 500) components.push({left, top, width: right - left + 1, height: bottom - top + 1, area});
   }
-  if (slots.length < 2) throw new Error(`Idle strip must contain separate poses; found ${slots.length}`);
+
+  const minTop = Math.min(...components.map((component) => component.top));
+  const maxTop = Math.max(...components.map((component) => component.top));
+  const rowSplit = (minTop + maxTop) / 2;
+  // 先按上下两行分组，再在每行按 X 排序；直接按 top 排序会被眨眼等细微边界变化打乱时间顺序。
+  const topRow = components.filter((component) => component.top < rowSplit).sort((a, b) => a.left - b.left);
+  const bottomRow = components.filter((component) => component.top >= rowSplit).sort((a, b) => a.left - b.left);
+  const slots = [...topRow, ...bottomRow];
+  // 图像模型偶尔将每行 15 格压缩为 14 格。至少 28 个真实微姿态才可接受，
+  // 余下的 30fps 槽位会以中性首帧补齐并保持循环边界无缝。
+  if (slots.length < 28 || slots.length > IDLE_FRAMES) {
+    throw new Error(`Idle sheet must contain 28-${IDLE_FRAMES} separate poses; found ${slots.length}`);
+  }
   return slots;
 };
 
@@ -106,9 +139,8 @@ const normalize = async (source, label) => {
 
 const sourceCell = (row, frame) => extractRaw(atlasData, atlasInfo, frame * CELL, row * CELL, CELL, CELL);
 const sourceIdleFrame = (frame) => {
-  const sourceIndex = frame >= idleSlots.length ? 0 : frame;
-  const slot = idleSlots[sourceIndex];
-  return extractRaw(idleData, idleInfo, slot.left, 0, slot.width, idleInfo.height);
+  const slot = idleSlots[frame >= idleSlots.length ? 0 : frame];
+  return extractRaw(idleData, idleInfo, slot.left, slot.top, slot.width, slot.height);
 };
 
 await mkdir(normalizedRoot, {recursive: true});
@@ -126,8 +158,7 @@ for (const [name, animation] of animations) {
   const entries = [];
 
   for (let frame = 0; frame < frameCount; frame += 1) {
-    // The source strip may contain fewer than 16 independent poses. Reuse neutral frame 0
-    // for tail slots and force the final frame to equal frame 0 for a seamless loop boundary.
+    // 用首帧替换尾帧，确保 30 帧循环从最后一帧回到第一帧时像素级无缝。
     const source = name === manifest.bindings.idle ? sourceIdleFrame(frame === frameCount - 1 ? 0 : frame) : sourceCell(animation.row, frame);
     const output = await normalize(source, `${name}:${frame}`);
     const outputPath = path.join(outputDir, `${String(frame).padStart(2, '0')}.png`);

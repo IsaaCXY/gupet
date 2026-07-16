@@ -74,7 +74,7 @@ export interface PetManifest {
   cell: {
     width: 256;
     height: 256;
-    columns: 16;
+    columns: 32;
   };
   animations: Record<string, AnimationDefinition>;
   bindings: {
@@ -98,8 +98,8 @@ export interface PetManifest {
 const animationDefinitionSchema = z
   .object({
     row: z.number().int().min(0),
-    frames: z.number().int().min(1).max(16),
-    durationsMs: z.array(z.number().positive()).min(1).max(16),
+    frames: z.number().int().min(1).max(32),
+    durationsMs: z.array(z.number().positive()).min(1).max(32),
     loop: z.boolean(),
     reducedMotionFrame: z.number().int().min(0),
   })
@@ -121,7 +121,7 @@ export const petManifestSchema: z.ZodType<PetManifest> = z
     cell: z.object({
       width: z.literal(256),
       height: z.literal(256),
-      columns: z.literal(16),
+      columns: z.literal(32),
     }),
     animations: z.record(z.string(), animationDefinitionSchema),
     bindings: z.object({

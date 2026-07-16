@@ -8,7 +8,8 @@ import sharp from 'sharp';
  * 会覆盖 public/pets/default/atlas.webp，不能用于发布素材。
  */
 const cell = 256;
-const columns = 16;
+// 正式图集为 32 列，留出 idle 的一秒 30fps 循环容量。
+const columns = 32;
 const rows = 10;
 const frameCounts = [12, 8, 8, 12, 16, 16, 12, 12, 12, 12];
 

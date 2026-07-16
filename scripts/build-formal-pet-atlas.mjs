@@ -13,7 +13,8 @@ const framesRoot = path.join(root, 'work', 'pet-v1', 'frames');
 const finalRoot = path.join(root, 'work', 'pet-v1', 'final');
 
 const cellSize = 256;
-const columns = 16;
+// v1 源条带最多占用前 16 列；正式图集仍输出 32 列以兼容长 idle 动画。
+const columns = 32;
 const actions = [
   {name: 'idle', sourceFrames: 6, loop: true},
   {name: 'look-left', sourceFrames: 4, loop: true},
