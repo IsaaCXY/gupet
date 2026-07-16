@@ -4,24 +4,20 @@ import process from 'node:process';
 import sharp from 'sharp';
 
 /**
- * 当前正式图集重建流程：将三段 idle 源条带和已有动作统一到固定高度、脚部基线与 30fps。
+ * 当前正式图集重建流程：将一段连续 idle 源条带和已有动作统一到固定高度、脚部基线与 30fps。
  * 输出直接写入 public，归一化后的逐帧 PNG 与边界报告只保留在 work/ 供 QA 使用。
  */
 const root = process.cwd();
 const petRoot = path.join(root, 'public', 'pets', 'default');
 const sourceAtlasPath = path.join(petRoot, 'atlas.webp');
 const manifestPath = path.join(petRoot, 'pet.json');
-const idleStripPaths = [
-  path.join(root, 'assets', 'pets', 'default', 'idle-3s-part-01-alpha.png'),
-  path.join(root, 'assets', 'pets', 'default', 'idle-3s-part-02-alpha.png'),
-  path.join(root, 'assets', 'pets', 'default', 'idle-3s-part-03-alpha.png'),
-];
+const idleStripPath = path.join(root, 'assets', 'pets', 'default', 'idle-single-action-v2-alpha.png');
 const normalizedRoot = path.join(root, 'work', 'pet-v2', 'normalized');
 const qaRoot = path.join(root, 'work', 'pet-v2', 'qa');
 
 const CELL = 256;
 const COLUMNS = 32;
-const IDLE_FRAMES = 90;
+const IDLE_FRAMES = 30;
 // 运行时使用浮点毫秒值精确表达 30fps，而不是近似的 33ms。
 const FRAME_DURATION_MS = 1000 / 30;
 const ALPHA_THRESHOLD = 16;
@@ -32,16 +28,13 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 // 图集宽度与 manifest 必须同步升级，否则 Renderer 会按旧列数解释资源。
 manifest.cell.columns = COLUMNS;
 const {data: atlasData, info: atlasInfo} = await sharp(sourceAtlasPath).ensureAlpha().raw().toBuffer({resolveWithObject: true});
-const idleSheets = await Promise.all(idleStripPaths.map(async (idleStripPath) => {
-  const sheet = await sharp(idleStripPath).ensureAlpha().raw().toBuffer({resolveWithObject: true});
-  if (sheet.info.width < 30 || sheet.info.height < 1) throw new Error(`Idle strip is too small: ${idleStripPath}`);
-  return sheet;
-}));
+const idleSheet = await sharp(idleStripPath).ensureAlpha().raw().toBuffer({resolveWithObject: true});
+if (idleSheet.info.width < IDLE_FRAMES || idleSheet.info.height < 1) throw new Error(`Idle strip is too small: ${idleStripPath}`);
 
 const pixelOffset = (info, x, y) => (y * info.width + x) * info.channels;
 
-const connectedIdleSlots = ({data: idleData, info: idleInfo}, label) => {
-  // 每段 idle 源图都是 2×15 排列。按 4 邻域找完整角色组件，避免假设每个槽等宽。
+const connectedIdleSlots = ({data: idleData, info: idleInfo}) => {
+  // idle 源图是单段 2×15 连续动作。按 4 邻域找完整角色组件，避免假设每个槽等宽。
   const pixels = idleInfo.width * idleInfo.height;
   const visited = new Uint8Array(pixels);
   const components = [];
@@ -84,14 +77,14 @@ const connectedIdleSlots = ({data: idleData, info: idleInfo}, label) => {
   const topRow = components.filter((component) => component.top < rowSplit).sort((a, b) => a.left - b.left);
   const bottomRow = components.filter((component) => component.top >= rowSplit).sort((a, b) => a.left - b.left);
   const slots = [...topRow, ...bottomRow];
-  // 图像模型偶尔将每行 15 格压缩为 14 格。每段至少 28 个姿态，随后均匀映射到 30 帧。
+  // 图像模型偶尔将每行 15 格压缩为 14 格；少量重复采样只用于补齐布局，不引入第二次动作。
   if (slots.length < 28 || slots.length > 30) {
-    throw new Error(`${label} must contain 28-30 separate poses; found ${slots.length}`);
+    throw new Error(`Idle sheet must contain 28-30 separate poses; found ${slots.length}`);
   }
   return slots;
 };
 
-const idleSlots = idleSheets.map((sheet, index) => connectedIdleSlots(sheet, `idle segment ${index + 1}`));
+const idleSlots = connectedIdleSlots(idleSheet);
 
 const extractRaw = (data, info, left, top, width, height) => {
   const output = Buffer.alloc(width * height * info.channels);
@@ -142,18 +135,13 @@ const normalize = async (source, label) => {
 
 const sourceCell = (row, frame) => extractRaw(atlasData, atlasInfo, frame * CELL, row * CELL, CELL, CELL);
 const sourceIdleFrame = (frame) => {
-  // 尾帧直接复用首帧，循环边界可做到像素级闭合；其余帧均匀采样三段 28-30 帧源图。
+  // 尾帧直接复用首帧，循环边界可做到像素级闭合；其余帧只按顺序读取这一条动作链。
   if (frame === IDLE_FRAMES - 1) {
-    const firstSheet = idleSheets[0];
-    const firstSlot = idleSlots[0][0];
-    return extractRaw(firstSheet.data, firstSheet.info, firstSlot.left, firstSlot.top, firstSlot.width, firstSlot.height);
+    const firstSlot = idleSlots[0];
+    return extractRaw(idleSheet.data, idleSheet.info, firstSlot.left, firstSlot.top, firstSlot.width, firstSlot.height);
   }
-  const segmentIndex = Math.floor(frame / 30);
-  const segmentFrame = frame % 30;
-  const sheet = idleSheets[segmentIndex];
-  const slots = idleSlots[segmentIndex];
-  const slot = slots[Math.round((segmentFrame * (slots.length - 1)) / 29)];
-  return extractRaw(sheet.data, sheet.info, slot.left, slot.top, slot.width, slot.height);
+  const slot = idleSlots[Math.round((frame * (idleSlots.length - 1)) / (IDLE_FRAMES - 2))];
+  return extractRaw(idleSheet.data, idleSheet.info, slot.left, slot.top, slot.width, slot.height);
 };
 
 await mkdir(normalizedRoot, {recursive: true});
@@ -179,7 +167,7 @@ for (const [name, animation] of animations) {
       : await sharp(source.data, {raw: source.info}).png().toBuffer();
     const outputPath = path.join(outputDir, `${String(frame).padStart(2, '0')}.png`);
     await writeFile(outputPath, output);
-    // 长动作按行折返，避免 90 帧 idle 形成超过 GPU 常见纹理限制的超宽图集。
+    // 预留跨行放置能力，避免将来增加动作采样时形成超过 GPU 常见纹理限制的超宽图集。
     atlasComposites.push({
       input: output,
       left: (frame % COLUMNS) * CELL,

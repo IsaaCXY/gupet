@@ -16,8 +16,8 @@ export const defaultPetManifest: PetManifest = {
     columns: 32,
   },
   animations: {
-    // 90 帧 = 3 秒：前后停顿与中段轻拍肚皮都保留完整的 30fps 时间采样。
-    idle: {row: 0, frames: 90, durationsMs: repeated(90, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
+    // 单条连续动作链：抬鳍、轻拍一次、回落、眨眼并回到中性。
+    idle: {row: 0, frames: 30, durationsMs: repeated(30, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
     'click-reaction': {row: 3, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: false, reducedMotionFrame: 6},
     'drag-left': {row: 4, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
     'drag-right': {row: 5, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},

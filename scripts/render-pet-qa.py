@@ -44,12 +44,14 @@ def main() -> None:
             source = atlas.crop((column * cell, row * cell, (column + 1) * cell, (row + 1) * cell))
             frames.append(source)
             if animation["frames"] <= manifest["cell"]["columns"]:
+                # 常规动作逐格展示，不能套用长动画的抽样反推公式。
                 contact_frame = frame
-            else:
-                contact_frame = round(frame * (manifest["cell"]["columns"] - 1) / (animation["frames"] - 1))
-            # 每个展示位置仅写入一次，保留完整 GIF 作为长动画的逐帧验收载体。
-            if frame == round(contact_frame * (animation["frames"] - 1) / (manifest["cell"]["columns"] - 1)):
                 contact.alpha_composite(source.resize((preview_cell, preview_cell)), (label_width + contact_frame * preview_cell, row_y))
+            else:
+                # 长动画仅在接触表均匀抽样；完整时序由 GIF 逐帧复核。
+                contact_frame = round(frame * (manifest["cell"]["columns"] - 1) / (animation["frames"] - 1))
+                if frame == round(contact_frame * (animation["frames"] - 1) / (manifest["cell"]["columns"] - 1)):
+                    contact.alpha_composite(source.resize((preview_cell, preview_cell)), (label_width + contact_frame * preview_cell, row_y))
 
         # Pillow 的 GIF 写入需要整数毫秒；与 manifest 的 30fps 浮点值取最近整数。
         durations = [max(1, round(duration)) for duration in animation["durationsMs"]]
