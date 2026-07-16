@@ -60,6 +60,12 @@ export const PetCanvas = ({settings, manifest}: Props) => {
   const reducedMotion = useReducedMotion(settings.motionMode);
   const animationKey = resolveAnimationKey(state, manifest);
 
+  /** 长动作在固定 32 列图集内折行，避免把 3 秒 idle 做成过宽纹理。 */
+  const getFrameCell = (definition: PetManifest['animations'][string], frame: number) => ({
+    column: frame % manifest.cell.columns,
+    row: definition.row + Math.floor(frame / manifest.cell.columns),
+  });
+
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -136,8 +142,9 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     const draw = (now: number) => {
       const result = getAnimationFrame(definition, now - startedAt, reducedMotion);
       frameRef.current = result.frameIndex;
-      const sourceX = result.frameIndex * manifest.cell.width;
-      const sourceY = definition.row * manifest.cell.height;
+      const frameCell = getFrameCell(definition, result.frameIndex);
+      const sourceX = frameCell.column * manifest.cell.width;
+      const sourceY = frameCell.row * manifest.cell.height;
       const destination = (WINDOW_SIZE - settings.petSize) / 2;
       context.clearRect(0, 0, WINDOW_SIZE, WINDOW_SIZE);
       context.drawImage(
@@ -210,10 +217,11 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     maskCanvas.height = manifest.cell.height;
     const context = maskCanvas.getContext('2d', {willReadFrequently: true});
     if (!context) return null;
+    const frameCell = getFrameCell(definition, frame);
     context.drawImage(
       image,
-      frame * manifest.cell.width,
-      definition.row * manifest.cell.height,
+      frameCell.column * manifest.cell.width,
+      frameCell.row * manifest.cell.height,
       manifest.cell.width,
       manifest.cell.height,
       0,

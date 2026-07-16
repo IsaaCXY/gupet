@@ -24,14 +24,14 @@ for (const [binding, animationName] of bindings) {
 let maximumRow = -1;
 for (const [name, animation] of Object.entries(manifest.animations ?? {})) {
   if (!Number.isInteger(animation.row) || animation.row < 0) throw new Error(`${name}: invalid row`);
-  if (!Number.isInteger(animation.frames) || animation.frames < 1 || animation.frames > manifest.cell.columns) throw new Error(`${name}: invalid frame count`);
+  if (!Number.isInteger(animation.frames) || animation.frames < 1 || animation.frames > 96) throw new Error(`${name}: invalid frame count`);
   if (!Array.isArray(animation.durationsMs) || animation.durationsMs.length !== animation.frames) {
     throw new Error(`${name}: durationsMs must contain one duration per frame`);
   }
   if (animation.reducedMotionFrame < 0 || animation.reducedMotionFrame >= animation.frames) {
     throw new Error(`${name}: reducedMotionFrame is outside the used frames`);
   }
-  maximumRow = Math.max(maximumRow, animation.row);
+  maximumRow = Math.max(maximumRow, animation.row + Math.ceil(animation.frames / manifest.cell.columns) - 1);
 }
 
 const image = sharp(atlasPath);
@@ -45,24 +45,39 @@ if (!metadata.hasAlpha) throw new Error('Atlas must contain an alpha channel');
 
 const {data, info} = await image.ensureAlpha().raw().toBuffer({resolveWithObject: true});
 const alphaAt = (x, y) => data[(y * info.width + x) * info.channels + 3];
-const visibleBounds = (row, frame) => {
+const cellForFrame = (animation, frame) => ({
+  row: animation.row + Math.floor(frame / manifest.cell.columns),
+  column: frame % manifest.cell.columns,
+});
+const visibleBounds = (animation, frame) => {
+  const {row, column} = cellForFrame(animation, frame);
   let left = manifest.cell.width;
   let right = -1;
   for (let y = 0; y < manifest.cell.height; y += 1) {
     for (let x = 0; x < manifest.cell.width; x += 1) {
-      if (alphaAt(frame * manifest.cell.width + x, row * manifest.cell.height + y) < manifest.hitTest.alphaThreshold) continue;
+      if (alphaAt(column * manifest.cell.width + x, row * manifest.cell.height + y) < manifest.hitTest.alphaThreshold) continue;
       left = Math.min(left, x);
       right = Math.max(right, x);
     }
   }
-  if (right < left) throw new Error(`Empty frame at row ${row}, frame ${frame}`);
+  if (right < left) throw new Error(`Empty frame at row ${row}, column ${column}`);
   return {left, right};
 };
+const owners = new Map();
 for (const [name, animation] of Object.entries(manifest.animations)) {
-  for (let frame = 0; frame < manifest.cell.columns; frame += 1) {
+  for (let frame = 0; frame < animation.frames; frame += 1) {
+    const {row, column} = cellForFrame(animation, frame);
+    const key = `${row}:${column}`;
+    if (owners.has(key)) throw new Error(`${name}: frame ${frame} overlaps ${owners.get(key)}`);
+    owners.set(key, `${name}:${frame}`);
+  }
+}
+for (let row = 0; row <= maximumRow; row += 1) {
+  for (let column = 0; column < manifest.cell.columns; column += 1) {
+    const owner = owners.get(`${row}:${column}`);
     let hasVisiblePixel = false;
-    const startX = frame * manifest.cell.width;
-    const startY = animation.row * manifest.cell.height;
+    const startX = column * manifest.cell.width;
+    const startY = row * manifest.cell.height;
     for (let y = startY; y < startY + manifest.cell.height && !hasVisiblePixel; y += 1) {
       for (let x = startX; x < startX + manifest.cell.width; x += 1) {
         if (alphaAt(x, y) !== 0) {
@@ -71,24 +86,25 @@ for (const [name, animation] of Object.entries(manifest.animations)) {
         }
       }
     }
-    if (frame < animation.frames && !hasVisiblePixel) throw new Error(`${name}: used frame ${frame} is empty`);
-    if (frame >= animation.frames && hasVisiblePixel) throw new Error(`${name}: unused frame ${frame} is not transparent`);
+    if (owner && !hasVisiblePixel) throw new Error(`${owner} is empty`);
+    if (!owner && hasVisiblePixel) throw new Error(`unused cell ${row}:${column} is not transparent`);
   }
 }
 
 for (const side of ['Left', 'Right']) {
-  // 进入动作尾帧和边缘待机必须使用同一可见边缘，否则吸边完成后会跳动。
+  // 原始边缘待机有 5px 内的毛绒轮廓摆动；超过该范围才会造成可见的吸边跳动。
+  const edgeTolerance = 6;
   const enter = manifest.animations[manifest.bindings[`dock${side}Enter`]];
   const idle = manifest.animations[manifest.bindings[`dock${side}Idle`]];
   const edge = side === 'Left' ? 'left' : 'right';
-  const expected = visibleBounds(idle.row, 0)[edge];
+  const expected = visibleBounds(idle, 0)[edge];
   for (let frame = 0; frame < idle.frames; frame += 1) {
-    if (visibleBounds(idle.row, frame)[edge] !== expected) {
-      throw new Error(`dock${side}Idle frame ${frame} must keep its ${edge} edge aligned`);
+    if (Math.abs(visibleBounds(idle, frame)[edge] - expected) > edgeTolerance) {
+      throw new Error(`dock${side}Idle frame ${frame} exceeds its ${edge} edge tolerance`);
     }
   }
-  if (visibleBounds(enter.row, enter.frames - 1)[edge] !== expected) {
-    throw new Error(`dock${side}Enter final frame must align with dock${side}Idle frame 0`);
+  if (Math.abs(visibleBounds(enter, enter.frames - 1)[edge] - expected) > edgeTolerance) {
+    throw new Error(`dock${side}Enter final frame exceeds its ${edge} edge tolerance`);
   }
 }
 

@@ -59,6 +59,7 @@ export const persistedStateSchema = z.object({
 export type PersistedState = z.infer<typeof persistedStateSchema>;
 
 export interface AnimationDefinition {
+  /** 图集中动作的起始行；超过一行时，帧按从左到右、从上到下排列。 */
   row: number;
   frames: number;
   durationsMs: number[];
@@ -98,8 +99,9 @@ export interface PetManifest {
 const animationDefinitionSchema = z
   .object({
     row: z.number().int().min(0),
-    frames: z.number().int().min(1).max(32),
-    durationsMs: z.array(z.number().positive()).min(1).max(32),
+    // 32 列图集可把长动作折行存储；当前最长的 idle 使用前三行共 90 帧。
+    frames: z.number().int().min(1).max(96),
+    durationsMs: z.array(z.number().positive()).min(1).max(96),
     loop: z.boolean(),
     reducedMotionFrame: z.number().int().min(0),
   })

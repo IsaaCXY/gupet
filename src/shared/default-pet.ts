@@ -2,7 +2,7 @@ import type {PetManifest} from './contracts';
 
 /** 内置 fallback manifest：磁盘上的 pet.json 无法加载时仍可显示默认 Pet。 */
 const repeated = (count: number, duration: number) => Array.from({length: count}, () => duration);
-// 图集动作统一以 30fps 播放；各行的帧数决定动作总时长。
+// 图集动作统一以 30fps 播放；帧超出 32 时按从左到右、从上到下跨行读取。
 const FRAME_DURATION_30FPS = 1000 / 30;
 
 export const defaultPetManifest: PetManifest = {
@@ -16,7 +16,8 @@ export const defaultPetManifest: PetManifest = {
     columns: 32,
   },
   animations: {
-    idle: {row: 0, frames: 30, durationsMs: repeated(30, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
+    // 90 帧 = 3 秒：前后停顿与中段轻拍肚皮都保留完整的 30fps 时间采样。
+    idle: {row: 0, frames: 90, durationsMs: repeated(90, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
     'click-reaction': {row: 3, frames: 12, durationsMs: repeated(12, FRAME_DURATION_30FPS), loop: false, reducedMotionFrame: 6},
     'drag-left': {row: 4, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},
     'drag-right': {row: 5, frames: 16, durationsMs: repeated(16, FRAME_DURATION_30FPS), loop: true, reducedMotionFrame: 0},

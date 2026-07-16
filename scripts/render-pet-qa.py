@@ -26,6 +26,7 @@ def main() -> None:
     actions = sorted(manifest["animations"].items(), key=lambda item: item[1]["row"])
     label_width = 220
     preview_cell = 128
+    # 接触表每行最多展示 32 帧；长动画通过 GIF 复核完整时序，静态表则均匀抽样。
     contact = Image.new("RGBA", (label_width + cell // 2 * manifest["cell"]["columns"], preview_cell * len(actions)), (0, 0, 0, 0))
     draw = ImageDraw.Draw(contact)
 
@@ -38,9 +39,17 @@ def main() -> None:
 
         frames = []
         for frame in range(animation["frames"]):
-            source = atlas.crop((frame * cell, animation["row"] * cell, (frame + 1) * cell, (animation["row"] + 1) * cell))
+            column = frame % manifest["cell"]["columns"]
+            row = animation["row"] + frame // manifest["cell"]["columns"]
+            source = atlas.crop((column * cell, row * cell, (column + 1) * cell, (row + 1) * cell))
             frames.append(source)
-            contact.alpha_composite(source.resize((preview_cell, preview_cell)), (label_width + frame * preview_cell, row_y))
+            if animation["frames"] <= manifest["cell"]["columns"]:
+                contact_frame = frame
+            else:
+                contact_frame = round(frame * (manifest["cell"]["columns"] - 1) / (animation["frames"] - 1))
+            # 每个展示位置仅写入一次，保留完整 GIF 作为长动画的逐帧验收载体。
+            if frame == round(contact_frame * (animation["frames"] - 1) / (manifest["cell"]["columns"] - 1)):
+                contact.alpha_composite(source.resize((preview_cell, preview_cell)), (label_width + contact_frame * preview_cell, row_y))
 
         # Pillow 的 GIF 写入需要整数毫秒；与 manifest 的 30fps 浮点值取最近整数。
         durations = [max(1, round(duration)) for duration in animation["durationsMs"]]
