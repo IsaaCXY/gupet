@@ -1,5 +1,6 @@
 import type {AnimationDefinition} from './contracts';
 
+/** 纯动画时钟：将经过时间映射为帧号，不依赖 Canvas 或 React。 */
 export interface AnimationFrameResult {
   frameIndex: number;
   completed: boolean;
@@ -11,6 +12,7 @@ export const getAnimationFrame = (
   reducedMotion: boolean,
 ): AnimationFrameResult => {
   if (reducedMotion) {
+    // 减少动态效果仍让单次动作结束，避免状态机卡在 click/docking。
     const frameIndex = Math.min(definition.frames - 1, Math.max(0, definition.reducedMotionFrame));
     return {
       frameIndex,
@@ -23,6 +25,7 @@ export const getAnimationFrame = (
   if (total <= 0) return {frameIndex: 0, completed: !definition.loop};
 
   const completed = !definition.loop && elapsedMs >= total;
+  // 循环动画取模；单次动画钳在最后一帧，保证不会越界。
   let cursor = definition.loop ? elapsedMs % total : Math.min(elapsedMs, total - 0.001);
 
   for (let index = 0; index < durations.length; index += 1) {

@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest';
 import {getAnimationFrame} from '../../src/shared/animation-clock';
 import type {AnimationDefinition} from '../../src/shared/contracts';
 
+/** 动画时钟的边界测试：变速帧、循环、单次结束与减少动态效果。 */
 const loop: AnimationDefinition = {
   row: 0,
   frames: 3,

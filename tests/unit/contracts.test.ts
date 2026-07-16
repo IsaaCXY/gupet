@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest';
 import {defaultPetManifest} from '../../src/shared/default-pet';
 import {dragPointSchema, petManifestSchema, persistedStateSchema} from '../../src/shared/contracts';
 
+/** 确认磁盘、图集和 IPC 的运行时契约不会被后续修改放宽。 */
 describe('runtime contracts', () => {
   it('fills persisted state defaults', () => {
     const state = persistedStateSchema.parse({});

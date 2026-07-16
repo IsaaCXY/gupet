@@ -10,6 +10,10 @@ import {
   type PetSettings,
 } from '../shared/contracts';
 
+/**
+ * 主进程唯一的设置/位置存储。
+ * Renderer 只能经 IPC 读写，避免它直接访问用户目录。
+ */
 const DEFAULT_STATE: PersistedState = persistedStateSchema.parse({});
 
 export class StateStore {
@@ -51,6 +55,7 @@ export class StateStore {
       const raw = readFileSync(this.filePath, 'utf8');
       return persistedStateSchema.parse(JSON.parse(raw));
     } catch {
+      // 损坏文件保留现场，应用仍可使用默认状态启动。
       const backupPath = `${this.filePath}.corrupt-${Date.now()}`;
       try {
         copyFileSync(this.filePath, backupPath);
@@ -62,6 +67,7 @@ export class StateStore {
   }
 
   private save(): void {
+    // 先写临时文件再原子重命名，避免中断时留下半截 JSON。
     const temporaryPath = `${this.filePath}.tmp`;
     writeFileSync(temporaryPath, `${JSON.stringify(this.state, null, 2)}\n`, 'utf8');
     renameSync(temporaryPath, this.filePath);

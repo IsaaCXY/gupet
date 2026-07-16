@@ -5,6 +5,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 
+"""从正式 atlas 与 manifest 生成接触表和 GIF，检查运行时实际会播放的帧。"""
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -40,6 +42,7 @@ def main() -> None:
             frames.append(source)
             contact.alpha_composite(source.resize((preview_cell, preview_cell)), (label_width + frame * preview_cell, row_y))
 
+        # Pillow 的 GIF 写入需要整数毫秒；与 manifest 的 30fps 浮点值取最近整数。
         durations = [max(1, round(duration)) for duration in animation["durationsMs"]]
         frames[0].save(
             preview_dir / f"{name}.gif",

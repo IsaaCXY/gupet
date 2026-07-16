@@ -1,5 +1,9 @@
 import {z} from 'zod';
 
+/**
+ * Renderer、Preload 与主进程共享的运行时契约。
+ * TypeScript 类型会在运行时擦除，因此磁盘数据与 IPC 都必须经过这些 Zod schema。
+ */
 export const WINDOW_SIZE = 320;
 export const DRAG_THRESHOLD = 6;
 
@@ -138,6 +142,7 @@ export const petManifestSchema: z.ZodType<PetManifest> = z
     }).optional(),
   })
   .superRefine((manifest, context) => {
+    // binding 是语义到资源动作的映射，不能指向不存在的图集行。
     for (const [binding, animation] of Object.entries(manifest.bindings)) {
       if (!manifest.animations[animation]) {
         context.addIssue({code: 'custom', message: `Binding ${binding} references missing animation ${animation}`, path: ['bindings', binding]});
@@ -155,6 +160,7 @@ export const dragPointSchema = z.object({
 export type DragPoint = z.infer<typeof dragPointSchema>;
 
 export const dockFrameBoundsSchema = z.object({
+  // alpha 边缘使用图集单元格坐标，主进程会按 Pet 缩放比例换算。
   visibleLeft: z.number().int().min(0).max(255),
   visibleRight: z.number().int().min(0).max(255),
 }).refine(({visibleLeft, visibleRight}) => visibleLeft <= visibleRight, {

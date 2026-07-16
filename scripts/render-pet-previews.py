@@ -2,6 +2,9 @@ from pathlib import Path
 from PIL import Image
 
 
+"""从 v1 逐帧 PNG 输出 GIF，供旧素材流程人工检查动作连续性。"""
+
+
 ROOT = Path(__file__).resolve().parents[1]
 FRAMES_ROOT = ROOT / "work" / "pet-v1" / "frames"
 OUTPUT_ROOT = ROOT / "work" / "pet-v1" / "qa" / "previews"
@@ -19,6 +22,7 @@ SOURCE_DURATIONS = {
     "dock-right-idle": [180] * 6,
 }
 DURATIONS = {
+    # 双倍图集中的相邻帧分别承接原帧时长的一半。
     action: [half for duration in durations for half in (duration // 2, duration - duration // 2)]
     for action, durations in SOURCE_DURATIONS.items()
 }

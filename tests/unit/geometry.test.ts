@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {positionForPlacement, snapOrClamp, xForDockedFrame, yRatioFor} from '../../src/main/geometry';
 
+/** 使用负坐标工作区覆盖真实副屏、任务栏/Dock 和可见边缘吸附场景。 */
 const workArea = {x: -1920, y: 0, width: 1920, height: 1080};
 
 describe('desktop geometry', () => {

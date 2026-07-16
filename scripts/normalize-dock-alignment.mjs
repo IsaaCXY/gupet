@@ -3,6 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
+/**
+ * 将停靠进入动画的最后一帧与停靠待机各帧的 alpha 边缘对齐。
+ * 窗口位置以可见角色边缘计算，若资源帧不齐会在边缘产生横向跳动。
+ */
 const root = process.cwd();
 const petRoot = path.join(root, 'public', 'pets', 'default');
 const manifest = JSON.parse(await readFile(path.join(petRoot, 'pet.json'), 'utf8'));
@@ -28,6 +32,7 @@ const frameBounds = (row, frame) => {
 const shiftFrame = (row, frame, delta) => {
   if (delta === 0) return;
   const source = Buffer.alloc(cell * cell * info.channels);
+  // 先拷出单元格再平移，避免原地写入时覆盖尚未读取的像素。
   for (let y = 0; y < cell; y += 1) {
     const start = ((row * cell + y) * info.width + frame * cell) * info.channels;
     data.copy(source, y * cell * info.channels, start, start + cell * info.channels);
@@ -56,6 +61,7 @@ const shiftFrame = (row, frame, delta) => {
 };
 
 const alignSide = (side) => {
+  // 待机第 0 帧作为锚点；进入动画的尾帧必须无缝衔接到该锚点。
   const enter = manifest.animations[manifest.bindings[`dock${side}Enter`]];
   const idle = manifest.animations[manifest.bindings[`dock${side}Idle`]];
   const edge = side === 'Left' ? 'left' : 'right';

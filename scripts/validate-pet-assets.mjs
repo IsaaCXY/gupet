@@ -3,6 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
+/**
+ * 结构校验：确保 manifest、图集维度、已用/未用单元格和停靠边缘约束一致。
+ * 此脚本在 start/package/make 前运行，阻止损坏素材进入应用。
+ */
 const manifestPath = path.join(process.cwd(), 'public', 'pets', 'default', 'pet.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const atlasPath = path.join(process.cwd(), 'public', 'pets', 'default', path.basename(manifest.atlasPath));
@@ -73,6 +77,7 @@ for (const [name, animation] of Object.entries(manifest.animations)) {
 }
 
 for (const side of ['Left', 'Right']) {
+  // 进入动作尾帧和边缘待机必须使用同一可见边缘，否则吸边完成后会跳动。
   const enter = manifest.animations[manifest.bindings[`dock${side}Enter`]];
   const idle = manifest.animations[manifest.bindings[`dock${side}Idle`]];
   const edge = side === 'Left' ? 'left' : 'right';

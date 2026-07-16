@@ -3,12 +3,17 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
+/**
+ * 生成开发占位图集，便于没有正式美术时调试交互。
+ * 会覆盖 public/pets/default/atlas.webp，不能用于发布素材。
+ */
 const cell = 256;
 const columns = 16;
 const rows = 10;
 const frameCounts = [12, 8, 8, 12, 16, 16, 12, 12, 12, 12];
 
 const frameArt = (row, frame) => {
+  // 用 row 选择不同状态的简化姿势，便于肉眼识别状态机绑定是否正确。
   const phase = (frame / Math.max(1, frameCounts[row] - 1)) * Math.PI * 2;
   const bob = Math.round(Math.sin(phase) * (row === 0 ? 3 : 6));
   const drag = row === 4 ? -10 : row === 5 ? 10 : 0;

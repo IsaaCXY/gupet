@@ -1,3 +1,4 @@
+/* Pet 透明窗口与设置窗口共用的基础样式；Canvas 的透明区域由主进程控制穿透。 */
 :root {
   color: #1c2433;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

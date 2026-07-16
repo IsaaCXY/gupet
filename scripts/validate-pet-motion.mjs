@@ -3,6 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
+/**
+ * 视觉稳定性校验：检查所有动作的 30fps 时序、可见高度、脚部基线和 idle 循环边界。
+ * 像素级约束补足 manifest 结构校验无法发现的视觉跳变。
+ */
 const root = process.cwd();
 const petRoot = path.join(root, 'public', 'pets', 'default');
 const manifest = JSON.parse(await readFile(path.join(petRoot, 'pet.json'), 'utf8'));
@@ -58,6 +62,7 @@ const allBottoms = allBounds.map((item) => item.bottom);
 if (Math.max(...allHeights) - Math.min(...allHeights) > 1) throw new Error('Character scale changes between animations');
 if (Math.max(...allBottoms) - Math.min(...allBottoms) > 1) throw new Error('Feet baseline changes between animations');
 
+// 首尾字节完全一致才能保证 idle 从末帧回到首帧时无缝。
 const idle = manifest.animations[manifest.bindings.idle];
 if (idle.frames !== 16) throw new Error('Idle must use 16 frames at 30fps');
 if (!frameBytes(idle.row, 0).equals(frameBytes(idle.row, idle.frames - 1))) {

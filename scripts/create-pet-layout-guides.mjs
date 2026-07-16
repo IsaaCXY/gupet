@@ -3,10 +3,12 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
+/** 为生成阶段输出 4/6/8 帧条带的不可见布局参考图。 */
 const outputDir = path.join(process.cwd(), 'work', 'pet-v1', 'references', 'layout-guides');
 await mkdir(outputDir, {recursive: true});
 
 for (const count of [4, 6, 8]) {
+  // 所有 guide 都是 8 个固定槽位，未使用槽位以灰色标记，不能出现在最终素材中。
   const slots = Array.from({length: 8}, (_, index) => {
     const used = index < count;
     const x = index * 256;

@@ -1,5 +1,9 @@
 import type {DockSide, PetManifest} from './contracts';
 
+/**
+ * Pet 交互状态机。副作用（窗口移动、声音、绘制）留在主进程或 Renderer，
+ * reducer 只负责可测试的状态转换与动作语义选择。
+ */
 export type Direction = 'left' | 'right';
 export type InteractionMode = 'idle' | 'dragging' | 'clickReaction' | 'docking' | 'docked';
 
@@ -38,6 +42,7 @@ export const petMachineReducer = (state: PetMachineState, event: PetMachineEvent
     case 'CLICK':
       return {...state, mode: 'clickReaction'};
     case 'ANIMATION_DONE':
+      // 点击发生在停靠状态时，反馈结束后必须回到边缘待机而不是普通 idle。
       if (state.mode === 'docking' || (state.mode === 'clickReaction' && state.dockSide)) {
         return {...state, mode: 'docked'};
       }
@@ -53,6 +58,7 @@ export const petMachineReducer = (state: PetMachineState, event: PetMachineEvent
 };
 
 const safeBinding = (manifest: PetManifest, key: keyof PetManifest['bindings']) => {
+  // 美术资源可替换；缺失 binding 时优雅回退到 idle，避免 Canvas 停止绘制。
   const candidate = manifest.bindings[key];
   return manifest.animations[candidate] ? candidate : manifest.bindings.idle;
 };
@@ -73,4 +79,5 @@ export const resolveAnimationKey = (state: PetMachineState, manifest: PetManifes
 };
 
 export const isDragDistance = (startX: number, startY: number, currentX: number, currentY: number, threshold: number) =>
+  // 使用严格大于：恰好 6px 的手抖仍被视为点击。
   Math.hypot(currentX - startX, currentY - startY) > threshold;

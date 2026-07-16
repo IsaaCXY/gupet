@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import type {MotionMode, PetSettings} from '../shared/contracts';
 
+/** 设置窗口：所有字段即时通过 IPC 写入主进程，界面不保存独立副本。 */
 interface Props {
   settings: PetSettings;
 }
@@ -11,6 +12,7 @@ export const SettingsView = ({settings}: Props) => {
   const update = async (patch: Partial<PetSettings>) => {
     setSaving(true);
     try {
+      // 主进程负责 schema 校验、落盘以及向全部窗口广播最新设置。
       await window.desktopPet.updateSettings(patch);
     } finally {
       setSaving(false);
@@ -111,6 +113,7 @@ interface ToggleProps {
 }
 
 const Toggle = ({label, description, checked, onChange}: ToggleProps) => (
+  // label 包裹 checkbox，让文字和开关都可点击。
   <label className="setting-toggle">
     <span>
       <strong>{label}</strong>

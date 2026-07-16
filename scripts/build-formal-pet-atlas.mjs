@@ -3,6 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
+/**
+ * 将初始美术条带拆为 256px 单元格并组装为正式图集。
+ * 该脚本保留在 v1 素材流程中；当前 30fps 图集使用 rebuild-pet-atlas-30fps.mjs。
+ */
 const root = process.cwd();
 const decodedRoot = path.join(root, 'work', 'pet-v1', 'decoded');
 const framesRoot = path.join(root, 'work', 'pet-v1', 'frames');
@@ -45,6 +49,7 @@ const visibleBounds = (data, info, left, width) => {
 };
 
 const cleanDetachedFragments = async (input) => {
+  // 仅保留主角色及紧邻的有效部件，清理生成图中偶发的孤立像素/碎片。
   const {data, info} = await sharp(input).ensureAlpha().raw().toBuffer({resolveWithObject: true});
   const pixelCount = info.width * info.height;
   const visited = new Uint8Array(pixelCount);
@@ -174,6 +179,7 @@ for (let row = 0; row < actions.length; row += 1) {
 
   const outputBuffers = [];
   for (let frame = 0; frame < sourceBuffers.length; frame += 1) {
+    // 历史图集将源帧复制一份以填充双倍帧数；新流程改为真正的 30fps 时序。
     const current = sourceBuffers[frame];
     outputBuffers.push(current, current);
   }
@@ -206,6 +212,7 @@ const atlas = sharp({
 await atlas.clone().png().toFile(path.join(finalRoot, 'atlas.png'));
 await atlas.clone().webp({lossless: true, effort: 6}).toFile(path.join(finalRoot, 'atlas.webp'));
 
+// contact sheet 仅供人工检查身份、基线、裁切和帧数，不参与运行时加载。
 const qaWidth = qaLabelWidth + columns * qaCell;
 const qaHeight = actions.length * qaCell;
 const labels = actions

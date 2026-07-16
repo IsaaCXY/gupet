@@ -2,6 +2,10 @@ import {existsSync, readdirSync, statSync} from 'node:fs';
 import path from 'node:path';
 import {expect, test, _electron as electron} from '@playwright/test';
 
+/**
+ * 打包产物冒烟测试：递归找到当前平台可执行文件后启动真实 Electron。
+ * 若没有先运行 pnpm package，测试会显式跳过而不是误报应用错误。
+ */
 const findExecutable = (root: string): string | null => {
   if (!existsSync(root)) return null;
   for (const entry of readdirSync(root)) {
@@ -29,6 +33,7 @@ test('packaged app opens the pet and receives settings updates', async () => {
   const pet = await app.firstWindow();
   const canvas = pet.locator('canvas');
   await expect(canvas).toBeVisible();
+  // 动画只能改变 Canvas 内容，不能自行移动桌面窗口。
   const positionBeforeAnimations = await app.evaluate(({BrowserWindow}) => {
     const {x, y} = BrowserWindow.getAllWindows()[0].getBounds();
     return {x, y};
@@ -43,6 +48,7 @@ test('packaged app opens the pet and receives settings updates', async () => {
   });
   expect(positionAfterAnimations).toEqual(positionBeforeAnimations);
   await canvas.hover({position: {x: 160, y: 160}});
+  // 以真实鼠标序列验证超过阈值后会进入原生窗口拖动路径。
   await pet.mouse.down();
   await pet.mouse.move(190, 190, {steps: 3});
   await pet.mouse.up();

@@ -1,6 +1,8 @@
 import type {PetManifest} from './contracts';
 
+/** 内置 fallback manifest：磁盘上的 pet.json 无法加载时仍可显示默认 Pet。 */
 const repeated = (count: number, duration: number) => Array.from({length: count}, () => duration);
+// 图集动作统一以 30fps 播放；各行的帧数决定动作总时长。
 const FRAME_DURATION_30FPS = 1000 / 30;
 
 export const defaultPetManifest: PetManifest = {

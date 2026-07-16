@@ -7,6 +7,7 @@ import {
   resolveAnimationKey,
 } from '../../src/shared/pet-machine';
 
+/** 状态机仅测试纯转换；Canvas 与 IPC 副作用由端到端测试覆盖。 */
 describe('pet machine', () => {
   it('keeps the drag animation active until the drag ends', () => {
     let state = petMachineReducer(initialPetState, {type: 'DRAG_START', direction: 'left'});

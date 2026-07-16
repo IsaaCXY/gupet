@@ -3,6 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
+/**
+ * 当前正式图集重建流程：将 idle 源条带和已有动作统一到固定高度、脚部基线与 30fps。
+ * 输出直接写入 public，归一化后的逐帧 PNG 与边界报告只保留在 work/ 供 QA 使用。
+ */
 const root = process.cwd();
 const petRoot = path.join(root, 'public', 'pets', 'default');
 const sourceAtlasPath = path.join(petRoot, 'atlas.webp');
@@ -14,6 +18,7 @@ const qaRoot = path.join(root, 'work', 'pet-v2', 'qa');
 const CELL = 256;
 const COLUMNS = 16;
 const IDLE_FRAMES = 16;
+// 运行时使用浮点毫秒值精确表达 30fps，而不是近似的 33ms。
 const FRAME_DURATION_MS = 1000 / 30;
 const ALPHA_THRESHOLD = 16;
 const TARGET_VISIBLE_HEIGHT = 224;
@@ -30,6 +35,7 @@ if (idleInfo.width < IDLE_FRAMES || idleInfo.height < 1) {
 const pixelOffset = (info, x, y) => (y * info.width + x) * info.channels;
 
 const connectedIdleSlots = () => {
+  // 生成条带的实际槽宽可能不完全相等，按 alpha 连通列切分而非按平均宽度硬切。
   const occupied = Array.from({length: idleInfo.width}, (_, x) => {
     for (let y = 0; y < idleInfo.height; y += 1) {
       if (idleData[pixelOffset(idleInfo, x, y) + 3] >= ALPHA_THRESHOLD) return true;
@@ -89,6 +95,7 @@ const normalize = async (source, label) => {
   if (!metadata.width || metadata.width > CELL) {
     throw new Error(`${label} would not fit in a ${CELL}px cell after scale normalization`);
   }
+  // 统一高度并以固定脚部基线摆放，保证 idle/click/dock 切换没有缩放或纵向跳变。
   return sharp({
     create: {width: CELL, height: CELL, channels: 4, background: {r: 0, g: 0, b: 0, alpha: 0}},
   })
@@ -130,6 +137,7 @@ for (const [name, animation] of animations) {
     entries.push(visibleBounds(data, info, `${name}:${frame}`));
   }
 
+  // manifest 与 atlas 一起更新，避免图集帧数和运行时时序脱节。
   manifest.animations[name] = {
     ...animation,
     frames: frameCount,

@@ -1,6 +1,9 @@
 import {contextBridge, ipcRenderer} from 'electron';
 import type {DesktopPetApi, DockFrameBounds, DragPoint, PetSettings} from '../shared/contracts';
 
+/**
+ * 安全 IPC 桥：Renderer 只能调用这组白名单 API，无法直接 require Electron/Node。
+ */
 const api: DesktopPetApi = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<PetSettings>) => ipcRenderer.invoke('settings:update', patch),
@@ -23,4 +26,5 @@ const api: DesktopPetApi = {
   openContextMenu: () => ipcRenderer.send('pet:context-menu'),
 };
 
+// 挂到 window 的唯一桌面能力入口，类型声明位于 renderer/global.d.ts。
 contextBridge.exposeInMainWorld('desktopPet', api);

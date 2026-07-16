@@ -13,11 +13,16 @@ import {WINDOW_SIZE, dockFrameBoundsSchema, dragPointSchema, type DockFrameBound
 import {positionForPlacement, snapOrClamp, xForDockedFrame, yRatioFor} from './geometry';
 import {StateStore} from './state-store';
 
+/**
+ * Electron 主进程：拥有原生窗口、托盘、屏幕坐标和持久化状态。
+ * Renderer 只通过 Preload 暴露的窄 IPC 请求这些桌面能力。
+ */
 let petWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let store: StateStore;
 let quitting = false;
+// 记录停靠待机帧的 alpha 边缘，使不同帧不会把可见角色从屏幕边缘弹开。
 let dockAnchorBounds: DockFrameBounds | null = null;
 let petHidden = false;
 
@@ -35,6 +40,7 @@ const loadRenderer = async (window: BrowserWindow, view: 'pet' | 'settings') => 
 };
 
 const displayForPlacement = (placement: PetPlacement): Display => {
+  // 已保存的显示器可能在下次启动前被移除，回退到主显示器。
   const displays = screen.getAllDisplays();
   return displays.find((display) => display.id === placement.displayId) ?? screen.getPrimaryDisplay();
 };
@@ -46,6 +52,7 @@ const applySavedPlacement = () => {
   const settings = store.getSettings();
   const position = positionForPlacement(placement, display.workArea, WINDOW_SIZE, settings.petSize);
   if (placement.dockSide && dockAnchorBounds) {
+    // 普通位置按窗口边界恢复；停靠位置则按精灵的可见边界恢复。
     position.x = xForDockedFrame(
       placement.dockSide,
       display.workArea,
@@ -119,6 +126,7 @@ const resetPosition = (): PetPlacement => {
 
 const movePet = (input: unknown) => {
   if (!petWindow) return;
+  // IPC 数据在运行时不可信，必须在进入 Electron 原生 API 前校验。
   const parsed = dragPointSchema.safeParse(input);
   if (!parsed.success) return;
   const point = parsed.data;
@@ -151,6 +159,7 @@ const alignDockedFrame = (input: unknown) => {
 const createPetWindow = async () => {
   const settings = store.getSettings();
   petHidden = false;
+  // 固定尺寸透明窗口承载 Canvas；Pet 的实际显示尺寸由 Renderer 绘制控制。
   petWindow = new BrowserWindow({
     width: WINDOW_SIZE,
     height: WINDOW_SIZE,
@@ -177,6 +186,7 @@ const createPetWindow = async () => {
     petWindow.setVisibleOnAllWorkspaces(true, {visibleOnFullScreen: true});
   }
 
+  // 初始穿透透明窗口；Renderer 命中到 alpha 像素后会临时关闭穿透。
   petWindow.setIgnoreMouseEvents(true, {forward: true});
   petWindow.on('close', (event) => {
     if (!quitting) {
@@ -271,6 +281,7 @@ const refreshTrayMenu = () => tray?.setContextMenu(trayMenu());
 const setPetVisible = (visible: boolean) => {
   if (!petWindow) return;
   petHidden = !visible;
+  // 隐藏采用透明度而非 close，保留窗口位置和 Renderer 运行状态。
   petWindow.setIgnoreMouseEvents(!visible, !visible ? {forward: true} : undefined);
   if (visible && !petWindow.isVisible()) petWindow.showInactive();
   petWindow.setOpacity(visible ? 1 : 0);
@@ -294,6 +305,7 @@ const createTray = () => {
 };
 
 const registerIpc = () => {
+  // 只注册 Preload API 所需的通道，避免把任意 Electron 能力暴露给网页。
   ipcMain.handle('settings:get', () => store.getSettings());
   ipcMain.handle('settings:update', (_event, patch: Partial<PetSettings>) => {
     const settings = store.updateSettings(patch);

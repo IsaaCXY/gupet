@@ -3,6 +3,10 @@ import {getAnimationFrame} from '../shared/animation-clock';
 import {DRAG_THRESHOLD, WINDOW_SIZE, type DragPoint, type PetManifest, type PetSettings} from '../shared/contracts';
 import {initialPetState, isDragDistance, petMachineReducer, resolveAnimationKey, type Direction} from '../shared/pet-machine';
 
+/**
+ * Pet 的实时渲染与交互层。
+ * Canvas 负责逐帧绘制和 alpha 命中；状态机决定动作；窗口移动仍交给主进程。
+ */
 interface Props {
   settings: PetSettings;
   manifest: PetManifest;
@@ -41,6 +45,7 @@ const useReducedMotion = (mode: PetSettings['motionMode']) => {
 export const PetCanvas = ({settings, manifest}: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  // alpha mask 同时服务于透明区域穿透与停靠时的可见边缘对齐。
   const alphaCacheRef = useRef(new Map<string, AlphaMask>());
   const frameRef = useRef(0);
   const clickAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -61,6 +66,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
 
   useEffect(
     () => window.desktopPet.onPetVisibilityChanged(() => {
+      // 隐藏时丢弃未完成拖动，避免再次显示后带着陈旧鼠标状态移动窗口。
       activePointerRef.current = null;
       ignoreMouseRef.current = true;
     }),
@@ -153,6 +159,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
           dockAlignmentKeyRef.current = dockAlignmentKey;
           const mask = getAlphaMask(idleKey, 0);
           if (mask) {
+            // 只在停靠侧、动作或缩放变化时通知主进程，避免每帧跨进程通信。
             window.desktopPet.alignDockedFrame({
               visibleLeft: mask.visibleLeft,
               visibleRight: mask.visibleRight,
@@ -197,6 +204,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     const definition = manifest.animations[animation];
     if (!image || !definition) return null;
 
+    // 从原图集裁出单帧再读 alpha；结果缓存后命中测试不会重复读取像素。
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = manifest.cell.width;
     maskCanvas.height = manifest.cell.height;
@@ -214,6 +222,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
       manifest.cell.height,
     );
     const pixels = context.getImageData(0, 0, manifest.cell.width, manifest.cell.height).data;
+    // 同时记录可见左右边缘，供停靠时把实际角色边缘贴到屏幕边缘。
     let visibleLeft: number = manifest.cell.width;
     let visibleRight: number = -1;
     for (let y = 0; y < manifest.cell.height; y += 1) {
@@ -251,6 +260,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
       manifest.cell.height - 1,
       Math.floor(((clientY - destination) / settings.petSize) * manifest.cell.height),
     );
+    // 透明像素不应拦截桌面点击；每次按当前动画帧判断。
     const mask = getAlphaMask(animationKey, frameRef.current);
     if (!mask || mask.pixels[(sourceY * manifest.cell.width + sourceX) * 4 + 3] < manifest.hitTest.alphaThreshold) {
       return null;
@@ -264,6 +274,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     if (![point.screenX, point.screenY, point.grabX, point.grabY].every(Number.isFinite)) return;
     pendingMoveRef.current = point;
     if (moveFrameRef.current !== null) return;
+    // 浏览器鼠标事件可能高于显示刷新率；每个渲染帧最多请求一次原生窗口移动。
     moveFrameRef.current = requestAnimationFrame(() => {
       moveFrameRef.current = null;
       if (pendingMoveRef.current) window.desktopPet.movePet(pendingMoveRef.current);
@@ -271,10 +282,8 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     });
   };
 
-  // Electron only forwards native mouse-move messages while a click-through
-  // window ignores input.  On Windows those messages are not consistently
-  // promoted to Pointer Events, so use Mouse Events for the whole interaction
-  // path instead of mixing the two event models.
+  // 穿透窗口仅会转发原生 mousemove；Windows 上它不稳定地转换为 PointerEvent，
+  // 因此整个交互链统一使用 MouseEvent，避免混用两套事件模型。
   const onMouseDown = (event: ReactMouseEvent<HTMLCanvasElement>) => {
     if (event.button !== 0 || !hitTest(event.clientX, event.clientY)) return;
     setWindowInteractive(true);
@@ -299,6 +308,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
     const deltaX = event.screenX - active.lastScreenX;
     const direction: Direction = deltaX < 0 ? 'left' : deltaX > 0 ? 'right' : stateRef.current.dragDirection;
     if (!active.dragging && isDragDistance(active.startScreenX, active.startScreenY, event.screenX, event.screenY, DRAG_THRESHOLD)) {
+      // 超过阈值才开始拖动，轻微手抖仍保留为点击反馈。
       active.dragging = true;
       dispatch({type: 'DRAG_START', direction});
     } else if (active.dragging && direction !== stateRef.current.dragDirection) {
@@ -331,6 +341,7 @@ export const PetCanvas = ({settings, manifest}: Props) => {
       const dockSide = await window.desktopPet.finishDrag();
       dispatch({type: 'DRAG_END', dockSide});
     } else {
+      // 声音是可选资源，播放失败不能影响点击状态转换。
       const audio = clickAudioRef.current;
       if (audio) {
         audio.currentTime = 0;
